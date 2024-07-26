@@ -1,0 +1,109 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://maven.aliyun.com/nexus/content/groups/public/' }
+        maven { url 'https://maven.aliyun.com/nexus/content/repositories/jcenter' }
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:7.4.1"
+        classpath 'com.github.dcendents:android-maven-gradle-plugin:2.0'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+allprojects {
+    repositories {
+        mavenCentral()
+        google()
+        maven { url 'https://maven.aliyun.com/nexus/content/groups/public/' }
+        maven { url 'https://maven.aliyun.com/nexus/content/repositories/jcenter' }
+        maven { url "https://jitpack.io" }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+
+//自动化构建，生成加固所需要的资源
+task jiagu(){
+
+    delete project('jiagu_shell').buildDir
+    //打包编译壳aar, (:jiagu_shell:bundleReleaseAar) 由于 jiagu_shell 从 library 改为 application 所以可以直接取得 dex 了
+    dependsOn project('jiagu_shell').tasks.findByPath(':jiagu_shell:assembleRelease')
+
+    delete project('jiaguLib').buildDir
+    //编译jiaguLib工程，生成jar文件
+    dependsOn project('jiaguLib').tasks.findByPath(':jiaguLib:build')
+
+    doLast {
+        println("jiagu ============= 已编译Aar")
+
+        //在根工程中创建jiagu文件夹
+        def root = new File(rootDir,'/jiagu')
+        if (root.exists()){
+            delete root
+        }
+        root = rootProject.mkdir('jiagu')
+        println("jiagu ============= 已重新创建了 - jiagu目录")
+        //将aar文件复制到jiagu目录中
+        // copy {
+        //     from 'jiagu_shell/build/outputs/aar'
+        //     into{root.absolutePath+"/aar"}
+        //     //include('**/*.aar')
+        // }
+        // 由于直接编译成 dex 了，所以这里也要改一下
+        copy {
+            from 'jiagu_shell/build/outputs/apk/release'
+            into{root.absolutePath+"/shellapk"}
+            //include('**/*.aar')
+        }
+
+        //复制依赖的库文件信息
+        copy {
+            from 'jiaguLib/libs'
+            into{root.absolutePath+"/libs"}
+            //include('**/*.aar')
+        }
+
+        //复制加固jar和签名配置文件
+        copy {
+            from 'jiaguLib/build/libs','jiaguLib/keystore.cfg'
+            into{root.absolutePath}
+            //include('**/*.aar')
+        }
+    }
+
+}
+
+task copyApk() {
+    // 生成 demo apk
+    dependsOn project('demo').tasks.findByPath(':demo:assembleRelease')
+    def root = new File(rootDir,'/jiagu')
+    doLast {
+        copy {
+            from 'demo/build/outputs/apk/release'
+            into{root.absolutePath}
+        }
+    }
+}
+
+task copyApkDebug() {
+    // 生成 demo apk
+    dependsOn project('demo').tasks.findByPath(':demo:assembleDebug')
+    def root = new File(rootDir,'/jiagu')
+    doLast {
+        copy {
+            from 'demo/build/outputs/apk/debug/demo-debug.apk'
+            into{root.absolutePath}
+            rename {fileName->
+                fileName = "demo-release-unsigned.apk"
+            }
+        }
+    }
+}

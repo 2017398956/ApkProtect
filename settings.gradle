@@ -1,0 +1,5 @@
+
+rootProject.name = "ApkProtect"
+include ':jiagu_shell'
+include ':demo'
+include ':jiaguLib'
