@@ -27,7 +27,7 @@ public class Utils {
         LogUtil.info("begin readAssetsClassesDex");
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         try {
-            InputStream dexFis = (InputStream) context.getAssets().open("classes.dex");
+            InputStream dexFis = (InputStream) context.getAssets().open("apk_protect/classes.dex");
             byte[] arrayOfByte = new byte[1024];
             int readSize = -1;
             while ((readSize = dexFis.read(arrayOfByte)) != -1) {

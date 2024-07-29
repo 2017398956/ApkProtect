@@ -403,7 +403,7 @@ public class JiaGuMain {
         logTitle("步骤五：删除原APK中的DEX文件，并放入可APK的dex文件");
         try {
             Zip4jUtil.deleteDexFromZip(zipPath);
-            Zip4jUtil.addFile2Zip(zipPath,newDexPath,"assets");
+            Zip4jUtil.addFile2Zip(zipPath,newDexPath,"assets/apk_protect");
             Zip4jUtil.addFile2Zip(zipPath,shellDexFile,"");
             //将加固的so文件添加到apk的lib中
             ZipFile zipFile = new ZipFile(zipPath);
