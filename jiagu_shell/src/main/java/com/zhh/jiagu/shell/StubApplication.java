@@ -27,6 +27,12 @@ public class StubApplication extends Application {
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
         // me.weishu.reflection.Reflection.unseal(base);
+        String sha1 = "34:06:43:F7:52:38:C9:82:BC:86:3A:C2:83:C3:8C:13:7D:F8:2B:DF";
+        String apkSHA1 = Utils.getPackageSignSHA1(base);
+        if (!sha1.replace(":", "").equals(apkSHA1)) {
+            // TODO: crash
+        }
+        LogUtil.debug("app 签名：" + apkSHA1);
         File newNativeLibraryDir = base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE);
         if (!new File(newNativeLibraryDir.getAbsolutePath(), AESUtil.JIA_GU_NATIVE_LIBRARY).exists()) {
             String nativeLibraryDir = getApplicationInfo().nativeLibraryDir;
