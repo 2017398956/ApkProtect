@@ -23,8 +23,6 @@ JNIEXPORT jbyteArray JNICALL Java_com_zhh_jiagu_shell_util_AESUtil_encrypt
 JNIEXPORT jbyteArray JNICALL Java_com_zhh_jiagu_shell_util_AESUtil_decrypt
   (JNIEnv *, jclass, jbyteArray);
 
-int test();
-
 #ifdef __cplusplus
 }
 #endif
