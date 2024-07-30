@@ -2,11 +2,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.zhh.jiagu.shell">
 
-<!--    <application
-        android:name="com.zhh.jiagu.shell.StubApplication">
+    <application>
+        <activity
+            android:name=".ShellMainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
 
-        <meta-data android:name="APPLICATION_CLASS_NAME" android:value="com.zhh.jiagu.demo.DemoApplication"/>
-
-    </application>-->
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
 
 </manifest>

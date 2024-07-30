@@ -5,6 +5,10 @@
 
 static const char* TAG = "JiaGu_SXJY";
 
+int test() {
+    return 2;
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
