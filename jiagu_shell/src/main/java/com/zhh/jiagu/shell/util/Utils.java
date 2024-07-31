@@ -1,5 +1,6 @@
 package com.zhh.jiagu.shell.util;
 
+import android.app.Application;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -17,14 +18,18 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import dalvik.system.BaseDexClassLoader;
+import dalvik.system.InMemoryDexClassLoader;
 
 public class Utils {
 
@@ -32,7 +37,7 @@ public class Utils {
         LogUtil.info("begin readAssetsClassesDex");
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         try {
-            InputStream dexFis = (InputStream) context.getAssets().open("apk_protect/classes.dex");
+            InputStream dexFis = context.getAssets().open("apk_protect/classes.dex");
             byte[] arrayOfByte = new byte[1024];
             int readSize = -1;
             while ((readSize = dexFis.read(arrayOfByte)) != -1) {
@@ -145,7 +150,7 @@ public class Utils {
      * @param apkdata classes.dex数据
      * @throws IOException 异常
      */
-    public static void releaseAppDexFile(byte[] apkdata, String apkFileName) throws Exception {
+    public static ByteBuffer[] releaseAppDexFile(byte[] apkdata, String apkFileName) throws Exception {
         int length = apkdata.length;
 
         //取被加壳apk的长度   这里的长度取值，对应加壳时长度的赋值都可以做些简化
@@ -166,8 +171,34 @@ public class Utils {
 
         LogUtil.info("============ 解密后的大小为======" + newdex.length);
 
-        //写入AppDex.zip文件
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ) {
+            LogUtil.info("Android 10 及以上");
+            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(newdex);
+            ZipInputStream zipInputStream = new ZipInputStream(byteArrayInputStream);
+            ZipEntry zipEntry = null;
+            byte[] bytesTemp = new byte[8192];
+            int bytesTempLength = -1;
+            List<ByteBuffer> byteBufferList = new ArrayList<>();
+            ByteArrayOutputStream byteArrayOutputStream;
+            while ((zipEntry = zipInputStream.getNextEntry()) != null) {
+                // FIXME:这里没有校验 zipEntry ，正常情况 zip 中只有 dex
+                byteArrayOutputStream = new ByteArrayOutputStream();
+                while ((bytesTempLength = zipInputStream.read(bytesTemp)) != -1) {
+                    byteArrayOutputStream.write(bytesTemp, 0, bytesTempLength);
+                }
+                byteBufferList.add(ByteBuffer.wrap(byteArrayOutputStream.toByteArray()));
+                byteArrayOutputStream.close();
+                zipInputStream.closeEntry();
+            }
+            zipInputStream.close();
+            byteArrayInputStream.close();
+            LogUtil.info("find classes.dex number:" + byteBufferList.size());
+            return byteBufferList.toArray(new ByteBuffer[0]);
+        }
+
+        // 写入 AppDex.zip文件
         File file = new File(apkFileName);
+        file.createNewFile();
         try {
             FileOutputStream localFileOutputStream = new FileOutputStream(file);
             localFileOutputStream.write(newdex);
@@ -177,7 +208,7 @@ public class Utils {
         }
         //LogUtil.info("============ 开始对压缩包进行解压得到dex文件======");
         // todo:由于仅加密的是源dex文件，故这里不需要检查so文件
-
+        return null;
     }
 
     public static String getMd5(File file) {

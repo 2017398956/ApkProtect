@@ -6,6 +6,7 @@ import android.content.ContentProvider;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ProviderInfo;
+import android.os.Build;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.Log;
@@ -16,12 +17,15 @@ import com.zhh.jiagu.shell.util.Utils;
 
 import java.io.File;
 import java.lang.ref.WeakReference;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
+import dalvik.system.BaseDexClassLoader;
 import dalvik.system.DexClassLoader;
+import dalvik.system.InMemoryDexClassLoader;
 
 /**
  * 方式一：壳程序直接对 APK 进行加密方式
@@ -49,20 +53,18 @@ public class LoadDexUtil {
             File odex = context.getDir("payload_odex", Application.MODE_PRIVATE);
 //            File libs = context.getDir("payload_lib", Application.MODE_PRIVATE);
             String odexPath = odex.getAbsolutePath();
-            //按版本号来标记zip
+            // 按版本号来标记 zip, 在 payload_odex 文件夹内，创建真正的 dex zip 文件
             String dexFilePath = String.format(Locale.CHINESE, "%s/AppDex_%d.zip", odexPath, appVersionCode);
 
             LogUtil.info("dexFilePath:" + dexFilePath);
             LogUtil.info("decodeDexAndReplace =============================开始");
 
             File dexFile = new File(dexFilePath);
-            LogUtil.info("apk size ===== " + dexFile.length());
-//            if (dexFile.exists()){
-//                dexFile.delete();
-//            }
-            //第一次加载APP
-            if (!dexFile.exists()) {
-                //先清空odexPath目录中文件,防止数据越来越多
+            LogUtil.info("true dex zip size: " + dexFile.length());
+            ByteBuffer[] trueDexData = null;
+            // 第一次加载APP
+            if (!dexFile.exists() || dexFile.length() == 0) {
+                // 先清空 odexPath 目录中文件, 防止数据越来越多
                 File[] children = odex.listFiles();
                 if (children != null) {
                     for (File child : children) {
@@ -71,16 +73,18 @@ public class LoadDexUtil {
                 }
                 LogUtil.info(" ===== App is first loading.");
                 long start = System.currentTimeMillis();
-                dexFile.createNewFile();  //在payload_odex文件夹内，创建payload.apk
-
-                String apkPath = context.getApplicationInfo().sourceDir;
-                // 读取程序 classes.dex 文件
-                // byte[] dexData = Utils.readDexFileFromApk(apkPath);
-                byte[] dexData = Utils.readAssetsClassesDex(context);
+                boolean useAssetsDex = true;
+                byte[] dexData;
+                if (useAssetsDex) {
+                     dexData = Utils.readAssetsClassesDex(context);
+                } else {
+                    String apkPath = context.getApplicationInfo().sourceDir;
+                    // 读取程序 classes.dex 文件
+                    dexData = Utils.readDexFileFromApk(apkPath);
+                }
                 if (dexData != null) {
-                    LogUtil.info("dexData length:" + dexData.length);
                     //从 classes.dex 中再取出 AppDex.zip 解密后存放到 /AppDex.zip，及其 so 文件放到 payload_lib 下
-                    Utils.releaseAppDexFile(dexData, dexFilePath);
+                    trueDexData = Utils.releaseAppDexFile(dexData, dexFilePath);
                 } else {
                     return false;
                 }
@@ -107,7 +111,13 @@ public class LoadDexUtil {
             //创建被加壳apk的DexClassLoader对象  加载apk内的类和本地代码（c/c++代码）
             // DexClassLoader dLoader = new DexClassLoader(dexFilePath, odexPath, context.getApplicationInfo().nativeLibraryDir, mClassLoader);
             // FIXME: 重打包后，so 在 vivo S16 Android 14 上不能加载，所以这里先换个位置
-            DexClassLoader dLoader = new DexClassLoader(dexFilePath, odexPath, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader);
+            BaseDexClassLoader dLoader;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && trueDexData != null && trueDexData.length > 0) {
+                LogUtil.info("trueDexData size:" + trueDexData.length);
+                dLoader = new InMemoryDexClassLoader(trueDexData, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader);
+            } else {
+                dLoader = new DexClassLoader(dexFilePath, odexPath, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader);
+            }
             LogUtil.info("创建新的 dexClassLoader:" + dLoader);
             // 把当前进程的 DexClassLoader 设置成了被加壳 apk 的 DexClassLoader  ----有点c++中进程环境的意思~~
             RefInvoke.setField(LoadedApk_CLASS, "mClassLoader", wr.get(), dLoader);
