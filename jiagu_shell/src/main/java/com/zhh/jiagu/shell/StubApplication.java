@@ -36,7 +36,8 @@ public class StubApplication extends Application {
         File newNativeLibraryDir = base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE);
         if (!new File(newNativeLibraryDir.getAbsolutePath(), AESUtil.JIA_GU_NATIVE_LIBRARY).exists()) {
             String nativeLibraryDir = getApplicationInfo().nativeLibraryDir;
-            String abi = nativeLibraryDir.substring(nativeLibraryDir.lastIndexOf("/"));
+            String abi = nativeLibraryDir.substring(nativeLibraryDir.lastIndexOf("/") + 1);
+            LogUtil.info("获取到的 abi 裁剪路径：" + abi);
             switch (abi) {
                 case "arm64":
                     abi = "arm64-v8a";
@@ -54,6 +55,7 @@ public class StubApplication extends Application {
                     abi = "arm64-v8a";
                     break;
             }
+            LogUtil.info("当前手机的 abi：" + abi);
             Utils.removeNativeLibraries(getApplicationInfo().sourceDir, abi,
                     base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath());
         }

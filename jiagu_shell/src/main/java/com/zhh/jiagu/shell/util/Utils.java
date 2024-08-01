@@ -103,7 +103,7 @@ public class Utils {
                     zipInputStream.close();
                     break;
                 }
-                if (entry.getName().startsWith("lib/" + abi) && entry.getName().endsWith(".so")) {
+                if (entry.getName().startsWith("lib/" + abi + "/") && entry.getName().endsWith(".so")) {
                     File file = new File(newNativeLibraryPath, entry.getName().replace("lib/" + abi + "/", ""));
                     if (!file.getParentFile().exists()) {
                         file.getParentFile().mkdirs();
