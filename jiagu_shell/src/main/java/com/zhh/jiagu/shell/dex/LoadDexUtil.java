@@ -93,22 +93,22 @@ public class LoadDexUtil {
                 LogUtil.info("dexFile has already existed.");
             }
             // 配置动态加载环境
-            //获取主线程对象
+            // 获取主线程对象
             Object currentActivityThread = getCurrentActivityThread();
-            String packageName = context.getPackageName();//当前apk的包名
+            String packageName = context.getPackageName();// 当前 apk 的包名
             LogUtil.info("packageName ===== " + packageName);
-            //下面两句不是太理解
+            // 获取 LoadedAPk
             ArrayMap<String, WeakReference> mPackages = (ArrayMap) RefInvoke.getField(
                     ActivityThread_CLASS, currentActivityThread, "mPackages");
             LogUtil.info("反射得到的 mPackages ===== " + mPackages);
             WeakReference wr = mPackages.get(packageName);
             ClassLoader mClassLoader = (ClassLoader) RefInvoke.getField(LoadedApk_CLASS, wr.get(), "mClassLoader");
-            LogUtil.info("mClassLoader:" + mClassLoader);
+            LogUtil.debug("mClassLoader:" + mClassLoader);
             // 下面这三个 classloader 都是一个
-            LogUtil.info("mClassLoader:" + Integer.toHexString(mClassLoader.hashCode()));
-            LogUtil.info("getClassLoader:" + Integer.toHexString(context.getClassLoader().hashCode()));
-            LogUtil.info("LoadDexUtil.class.getClassLoader:" + Integer.toHexString(LoadDexUtil.class.getClassLoader().hashCode()));
-            //创建被加壳apk的DexClassLoader对象  加载apk内的类和本地代码（c/c++代码）
+            LogUtil.debug("mClassLoader:" + Integer.toHexString(mClassLoader.hashCode()));
+            LogUtil.debug("getClassLoader:" + Integer.toHexString(context.getClassLoader().hashCode()));
+            LogUtil.debug("LoadDexUtil.class.getClassLoader:" + Integer.toHexString(LoadDexUtil.class.getClassLoader().hashCode()));
+            // 创建被加壳 apk 的 DexClassLoader 对象,加载 apk 内的类和本地代码 （c/c++代码）
             // DexClassLoader dLoader = new DexClassLoader(dexFilePath, odexPath, context.getApplicationInfo().nativeLibraryDir, mClassLoader);
             // FIXME: 重打包后，so 在 vivo S16 Android 14 上不能加载，所以这里先换个位置
             BaseDexClassLoader dLoader;

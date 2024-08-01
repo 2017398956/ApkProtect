@@ -29,6 +29,7 @@ add_library(
         ShellDex
         SHARED
         shelldex/ShellNativeMethod.cpp
+#        byopen/byopen_android.cpp
         )
 
 # Searches for a specified prebuilt library and stores the path as a

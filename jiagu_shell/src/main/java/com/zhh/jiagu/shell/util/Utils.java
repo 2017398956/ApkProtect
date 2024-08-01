@@ -1,6 +1,5 @@
 package com.zhh.jiagu.shell.util;
 
-import android.app.Application;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -23,21 +22,23 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.security.MessageDigest;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import dalvik.system.BaseDexClassLoader;
-import dalvik.system.InMemoryDexClassLoader;
 
 public class Utils {
 
     public static byte[] readAssetsClassesDex(Context context) {
+        return readAssetsClassesDex(context, "apk_protect/classes.dex");
+    }
+
+    public static byte[] readAssetsClassesDex(Context context, String path) {
         LogUtil.info("begin readAssetsClassesDex");
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         try {
-            InputStream dexFis = context.getAssets().open("apk_protect/classes.dex");
+            InputStream dexFis = context.getAssets().open(path);
             byte[] arrayOfByte = new byte[1024];
             int readSize = -1;
             while ((readSize = dexFis.read(arrayOfByte)) != -1) {
@@ -65,7 +66,7 @@ public class Utils {
      * @throws IOException
      */
     public static byte[] readDexFileFromApk(String apkPath) throws IOException {
-        LogUtil.info("从classes.dex解析出加密的原包的dex数据");
+        LogUtil.info("apkPath:" + apkPath);
         ByteArrayOutputStream dexByteArrayOutputStream = new ByteArrayOutputStream();
         //获取当前zip进行解压
         ZipInputStream zipInputStream = new ZipInputStream(
@@ -171,7 +172,7 @@ public class Utils {
 
         LogUtil.info("============ 解密后的大小为======" + newdex.length);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             LogUtil.info("Android 10 及以上");
             ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(newdex);
             ZipInputStream zipInputStream = new ZipInputStream(byteArrayInputStream);
