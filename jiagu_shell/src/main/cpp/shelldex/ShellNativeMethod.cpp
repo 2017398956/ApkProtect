@@ -158,7 +158,7 @@ Java_com_zhh_jiagu_shell_util_ShellNativeMethod_loadDexFile(JNIEnv *env, jclass 
         jbyte *bytes = env->GetByteArrayElements(dexBytes, 0);
         int inDexLen = env->GetArrayLength(dexBytes);
         char *pDex = new char[inDexLen + 1];
-        std::string location;
+        const char *location = "";
         std::string err_msg;
         memset(pDex, 0, inDexLen + 1);
         memcpy(pDex, bytes, inDexLen);
@@ -168,15 +168,17 @@ Java_com_zhh_jiagu_shell_util_ShellNativeMethod_loadDexFile(JNIEnv *env, jclass 
         LOGI("获取 dex 对应的 cookie, and checksum: %u, fileSize: %d, dexSize: %lld, inDexLen: %d",
              dex_header->checksum_, dex_header->file_size_, dexSize, inDexLen);
 
-        void *mem_map = mapDummy("classes_100", (uint8_t *) pDex, inDexLen);
-        LOGI("mem_map:%p", mem_map);
-        printCPlusPlusFunction((JNINativeMethod *) mem_map);
+        void *mem_map = mapDummy(location, (uint8_t *) pDex, inDexLen + 1);
+//        printCPlusPlusFunction((JNINativeMethod *) mem_map);
 
 //        void *value = openMemory22(location,
 //                                   dex_header->checksum_,
 //                                   mem_map,
 //                                   &err_msg);
-        void *value = openMemory22((uint8_t *) mem_map,
+        LOGI("dexBytes: %p, jbytes: %p, pDex: %p, mem_map: %p", dexBytes, bytes, pDex, mem_map);
+        LOGI("dexBytes: %s, jbytes: %s, pDex: %s, mem_map: %s", (uint8_t *) dexBytes,
+             (uint8_t *) bytes, (uint8_t *) pDex, (uint8_t *) mem_map);
+        void *value = openMemory22((uint8_t *) location,
                                    inDexLen,
                                    location,
                                    dex_header->checksum_,
