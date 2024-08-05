@@ -46,18 +46,18 @@ void *fake_dlsym(void *handle, const char *name);
 
 bool useOpenMemory = true;
 
-//typedef void *(*org_artDexFileOpenMemory22)(const std::string &location,
-//                                            uint32_t location_checksum,
-//                                            void *mem_map,
-//                                            std::string *error_msg);
-
-typedef void *(*org_artDexFileOpenMemory22)(const uint8_t *base,
-                                            size_t size,
-                                            const std::string &location,
+typedef void *(*org_artDexFileOpenMemory22)(const std::string &location,
                                             uint32_t location_checksum,
                                             void *mem_map,
-                                            const void *oat_dex_file,
                                             std::string *error_msg);
+
+//typedef void *(*org_artDexFileOpenMemory22)(const uint8_t *base,
+//                                            size_t size,
+//                                            const std::string &location,
+//                                            uint32_t location_checksum,
+//                                            void *mem_map,
+//                                            const void *oat_dex_file,
+//                                            std::string *error_msg);
 
 // 执行这个方法后返回的是 mem_map
 typedef void *(*org_artMemMapMapDummy)(const char *name, uint8_t *addr, size_t byte_count);
@@ -107,10 +107,18 @@ void test() {
     u4 t1;
     u4 t2 = (size_t) ao;
     size_t t3;
-    size_t t4 = (size_t) ao;
+    auto t4 = (size_t) ao;
     LOGI("sizeof ao:%d, t1:%d, t2:%d, t3:%d, t4:%d", sizeof ao, sizeof t1, sizeof t2, sizeof t3,
          sizeof t4);
     LOGI("sizeof ao:%lu, t1:%u, t2:%u, t3:%zu,t4: %zu", ao, t1, t2, t3, t4);
+
+    typedef const char *(*GetVersion)();
+    typedef const char *(*GetEmail)();
+    void *libsxjiagu = (void *) by_dlopen("libsxjiagu.so", RTLD_LAZY);
+    auto getVersion = (GetVersion) by_dlsym(libsxjiagu, "getVersion");
+    auto getEmail = (GetEmail) by_dlsym(libsxjiagu, "_Z8getEmailv");
+    LOGI("libsxjiagu: %p, getVersion:%p, getEmail: %p", libsxjiagu, getVersion, getEmail);
+    LOGI("GetVersion:%s, GetEmail:%s", getVersion(), getEmail());
 }
 
 const char *openMemory22Name = "_ZN3art7DexFile10OpenMemoryEPKhjRKNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEjPNS_6MemMapEPKNS_10OatDexFileEPS9_";
@@ -119,22 +127,25 @@ const char *openMemory23Name = "_ZN3art7DexFile10OpenMemoryERKNSt3__112basic_str
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     test();
     void *env;
-    void *libart = (void *) dlopen("libart.so", RTLD_LAZY);
+    void *libart = (void *) by_dlopen("libart.so", RTLD_LAZY);
     // dvm 虚拟机
     // void *libdvm = (void *) dlopen("libdvm.so", RTLD_LAZY);
     // dexFile = (JNINativeMethod *) dlsym(libdvm, "dvm_dalvik_system_DexFile");
-    openMemory22 = (org_artDexFileOpenMemory22) dlsym(libart, openMemory22Name);
+    openMemory22 = (org_artDexFileOpenMemory22) by_dlsym(libart, openMemory22Name);
     if (openMemory22 == nullptr) {
         LOGI("use sdk 23 openMemory.");
-        openMemory22 = (org_artDexFileOpenMemory22) dlsym(libart, openMemory23Name);
+        openMemory22 = (org_artDexFileOpenMemory22) by_dlsym(libart, openMemory23Name);
     }
     LOGI("libart: %p, openMemory: %p", libart, openMemory22);
-    mapDummy = (org_artMemMapMapDummy) dlsym(libart, "_ZN3art6MemMap8MapDummyEPKcPhm");
+    mapDummy = (org_artMemMapMapDummy) by_dlsym(libart, "_ZN3art6MemMap8MapDummyEPKcPhm");
+    if (mapDummy == nullptr) {
+        mapDummy = (org_artMemMapMapDummy) by_dlsym(libart, "_ZN3art6MemMap8MapDummyEPKcPhj");
+    }
     LOGI("MapDummy:%p", mapDummy);
 
     if (!useOpenMemory) {
-        dexFile = static_cast<JNINativeMethod *>(dlsym(libart,
-                                                       "_ZN3art7DexFile10OpenMemoryEPKhjRKNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEjPNS_6MemMapEPKNS_10OatDexFileEPS9_"));
+        dexFile = static_cast<JNINativeMethod *>(by_dlsym(libart,
+                                                          "_ZN3art7DexFile10OpenMemoryEPKhjRKNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEjPNS_6MemMapEPKNS_10OatDexFileEPS9_"));
         if (checkFunction(dexFile, "openDexFile", "([B)I", &openDexFile) == 0) {
             openDexFile = nullptr;
             LOGI("not found openDexFile method!");
@@ -171,20 +182,20 @@ Java_com_zhh_jiagu_shell_util_ShellNativeMethod_loadDexFile(JNIEnv *env, jclass 
         void *mem_map = mapDummy(location, (uint8_t *) pDex, inDexLen + 1);
 //        printCPlusPlusFunction((JNINativeMethod *) mem_map);
 
-//        void *value = openMemory22(location,
-//                                   dex_header->checksum_,
-//                                   mem_map,
-//                                   &err_msg);
+        void *value = openMemory22(location,
+                                   dex_header->checksum_,
+                                   mem_map,
+                                   &err_msg);
         LOGI("dexBytes: %p, jbytes: %p, pDex: %p, mem_map: %p", dexBytes, bytes, pDex, mem_map);
         LOGI("dexBytes: %s, jbytes: %s, pDex: %s, mem_map: %s", (uint8_t *) dexBytes,
              (uint8_t *) bytes, (uint8_t *) pDex, (uint8_t *) mem_map);
-        void *value = openMemory22((uint8_t *) location,
-                                   inDexLen,
-                                   location,
-                                   dex_header->checksum_,
-                                   mem_map,
-                                   nullptr,
-                                   &err_msg);
+//        void *value = openMemory22((uint8_t *) pDex,
+//                                   inDexLen,
+//                                   location,
+//                                   dex_header->checksum_,
+//                                   mem_map,
+//                                   nullptr,
+//                                   &err_msg);
         LOGI("cookie value: %p", value);
         jlong cookie = replace_cookie(env, value, 22);
         return cookie;
