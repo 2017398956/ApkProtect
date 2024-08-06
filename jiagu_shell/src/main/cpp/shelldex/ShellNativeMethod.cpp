@@ -113,12 +113,15 @@ void test() {
     LOGI("sizeof ao:%lu, t1:%u, t2:%u, t3:%zu,t4: %zu", ao, t1, t2, t3, t4);
 
     typedef const char *(*GetVersion)();
-    typedef const char *(*GetEmail)();
+    typedef const char *(*GetEmail)(const char *);
     void *libsxjiagu = (void *) by_dlopen("libsxjiagu.so", RTLD_LAZY);
     auto getVersion = (GetVersion) by_dlsym(libsxjiagu, "getVersion");
-    auto getEmail = (GetEmail) by_dlsym(libsxjiagu, "_Z8getEmailv");
+    auto getEmail = (GetEmail) by_dlsym(libsxjiagu, "_Z8getEmailPKc");
     LOGI("libsxjiagu: %p, getVersion:%p, getEmail: %p", libsxjiagu, getVersion, getEmail);
-    LOGI("GetVersion:%s, GetEmail:%s", getVersion(), getEmail());
+    LOGI("GetVersion:%s", getVersion());
+    const char *email_prefix = "Email";
+    LOGI("email_prefix ptr: %p", email_prefix);
+    LOGI("GetEmail:%s", getEmail(email_prefix));
 }
 
 const char *openMemory22Name = "_ZN3art7DexFile10OpenMemoryEPKhjRKNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEjPNS_6MemMapEPKNS_10OatDexFileEPS9_";

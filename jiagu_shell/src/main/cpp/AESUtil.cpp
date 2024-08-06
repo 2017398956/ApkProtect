@@ -73,8 +73,10 @@ const char *getVersion() {
 }
 #endif
 
-const char *getEmail() {
-    return "2017398956@qq.com";
+const char *getEmail(const char *prefix) {
+    char *result = new char [strlen(prefix) + 19];
+    sprintf(result, "%s_%s", prefix, "2017398956@qq.com");
+    return result;
 }
 
 int getVersionCode() {
