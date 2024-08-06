@@ -112,10 +112,18 @@ public class LoadDexUtil {
             // DexClassLoader dLoader = new DexClassLoader(dexFilePath, odexPath, context.getApplicationInfo().nativeLibraryDir, mClassLoader);
             // FIXME: 重打包后，so 在 vivo S16 Android 14 上不能加载，所以这里先换个位置
             BaseDexClassLoader dLoader;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                // FIXME: 由于 so 加载问题及测试不充分，不能保证在 8.1 的机器上不出问题，所以这里不从 8.1 开始处理而是从 10
+                // new InMemoryDexClassLoader(trueDexData, mClassLoader);
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && trueDexData != null && trueDexData.length > 0) {
                 LogUtil.info("trueDexData size:" + trueDexData.length);
                 dLoader = new InMemoryDexClassLoader(trueDexData, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader);
-            } else {
+            }
+//            else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1 && trueDexData != null && trueDexData.length > 0) {
+//                dLoader = new MyClassLoader(context, trueDexData, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader, dexFilePath, odexPath);
+//            }
+            else {
                 dLoader = new DexClassLoader(dexFilePath, odexPath, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader);
             }
             LogUtil.info("创建新的 dexClassLoader:" + dLoader);

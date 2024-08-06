@@ -32,6 +32,13 @@ add_library(
         byopen/byopen_android.cpp
         )
 
+add_library(
+        ShellDex2
+        SHARED
+        shelldex/ShellNativeMethod2.cpp
+        byopen/byopen_android.cpp
+)
+
 # Searches for a specified prebuilt library and stores the path as a
 # variable. Because CMake includes system libraries in the search path by
 # default, you only need to specify the name of the public NDK library
@@ -58,4 +65,8 @@ target_link_libraries( # Specifies the target library.
 
 target_link_libraries(
         ShellDex
+        ${log-lib} )
+
+target_link_libraries(
+        ShellDex2
         ${log-lib} )

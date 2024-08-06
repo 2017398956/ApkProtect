@@ -20,6 +20,7 @@
 
 #define  LOG_TAG    "ShellNativeMethod"
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 //#ifdef __arm__
 #define Elf_Ehdr Elf32_Ehdr
@@ -129,7 +130,6 @@ const char *openMemory23Name = "_ZN3art7DexFile10OpenMemoryERKNSt3__112basic_str
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     test();
-    void *env;
     void *libart = (void *) by_dlopen("libart.so", RTLD_LAZY);
     // dvm 虚拟机
     // void *libdvm = (void *) dlopen("libdvm.so", RTLD_LAZY);
@@ -155,12 +155,24 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
         } else {
             LOGI("found openDexFile method!");
         }
-        if (vm->GetEnv((void **) &env, JNI_VERSION_1_4) != JNI_OK) {
-            LOGI("GetEnv failure");
-            return -1;
-        }
     }
-    return JNI_VERSION_1_4;
+    JNIEnv *env = nullptr;
+    jint ret = vm->GetEnv((void **) &env, JNI_VERSION_1_6);
+    if (ret != JNI_OK) {
+        LOGE("JNI_VERSION_1_6: jni_replace JVM ERROR:GetEnv");
+        ret = vm->GetEnv((void **) &env, JNI_VERSION_1_4);
+        if (ret != JNI_OK) {
+            LOGE("JNI_VERSION_1_4: jni_replace JVM ERROR:GetEnv");
+            ret = vm->GetEnv((void **) &env, JNI_VERSION_1_2);
+            if (ret != JNI_OK) {
+                LOGE("JNI_VERSION_1_2: jni_replace JVM ERROR:GetEnv");
+                return JNI_VERSION_1_1;
+            }
+            return JNI_VERSION_1_2;
+        }
+        return JNI_VERSION_1_4;
+    }
+    return JNI_VERSION_1_6;
 }
 
 extern "C"

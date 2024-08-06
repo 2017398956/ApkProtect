@@ -172,7 +172,8 @@ public class Utils {
 
         LogUtil.info("============ 解密后的大小为======" + newdex.length);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q // || Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1
+        ) {
             LogUtil.info("Android 10 及以上");
             ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(newdex);
             ZipInputStream zipInputStream = new ZipInputStream(byteArrayInputStream);
