@@ -11,6 +11,7 @@ import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.Log;
 
+import com.zhh.jiagu.shell.constant.Configs;
 import com.zhh.jiagu.shell.util.LogUtil;
 import com.zhh.jiagu.shell.util.RefInvoke;
 import com.zhh.jiagu.shell.util.Utils;
@@ -76,7 +77,7 @@ public class LoadDexUtil {
                 boolean useAssetsDex = true;
                 byte[] dexData;
                 if (useAssetsDex) {
-                     dexData = Utils.readAssetsClassesDex(context);
+                    dexData = Utils.readAssetsClassesDex(context);
                 } else {
                     String apkPath = context.getApplicationInfo().sourceDir;
                     // 读取程序 classes.dex 文件
@@ -119,11 +120,9 @@ public class LoadDexUtil {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && trueDexData != null && trueDexData.length > 0) {
                 LogUtil.info("trueDexData size:" + trueDexData.length);
                 dLoader = new InMemoryDexClassLoader(trueDexData, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader);
-            }
-//            else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1 && trueDexData != null && trueDexData.length > 0) {
-//                dLoader = new MyClassLoader(context, trueDexData, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader, dexFilePath, odexPath);
-//            }
-            else {
+            } else if (Configs.TestOpenMemory && Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1 && trueDexData != null && trueDexData.length > 0) {
+                dLoader = new MyClassLoader(context, trueDexData, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader, dexFilePath, odexPath);
+            } else {
                 dLoader = new DexClassLoader(dexFilePath, odexPath, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader);
             }
             LogUtil.info("创建新的 dexClassLoader:" + dLoader);

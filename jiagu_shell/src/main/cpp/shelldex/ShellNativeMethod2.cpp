@@ -10,8 +10,8 @@
 #include "../byopen/byopen.h"
 #include <sstream>
 
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "Tag", __VA_ARGS__)
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "Tag", __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "ShellNativeMethod2", __VA_ARGS__)
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "ShellNativeMethod2", __VA_ARGS__)
 
 /* 以下是 OpenMemory函数在内存中对外的方法名 */
 /*Android 5*/
@@ -72,22 +72,21 @@ Java_com_zhh_jiagu_shell_util_ShellNativeMethod2_OpenMemory(JNIEnv *env, jclass 
     LOGD("coming into OpenMemoryNative and current sdk_int:%d", sdk_int);
     if (sdk_int <= 22) {/* android 5.0, 5.1*/
         LOGD("coming into OpenMemoryNative method in Android 5");
-        value = loadDexInAndroid5(sdk_int, (char *) dex, (size_t) dexlen);
+        value = loadDexInAndroid5(sdk_int, (char *) bytes, (size_t) dexlen);
     } else if (sdk_int < 25) {/* android 6.0 7.0 */
         LOGD("coming into OpenMemoryNative method in Android 6 and above");
-        value = loadDexAboveAndroid6((char *) dex, (size_t) dexlen).get();
+        value = loadDexAboveAndroid6((char *) bytes, (size_t) dexlen).get();
     } else {/* android 7.1 */
         LOGD("coming into OpenMemoryNative method in Android 7.1");
         value = loadDexAboveAndroid7_1((char *) bytes, (size_t) dexlen).get();
     }
 
     if (value) {
-        LOGD("load dex success and cookie:%p", value);
-        auto temp = reinterpret_cast<jarray>(value);
-        LOGD("temp:%p", temp);
-//        LOGD("jarray size:%d", env->GetArrayLength(temp));
+        jlongArray array = env->NewLongArray(1);
+        env->SetLongArrayRegion(array, 0, 1, (jlong *) value);
+        return reinterpret_cast<jobject *>(array);
     }
-    return (jobject *) value;
+    return (jobject *) nullptr;
 }
 
 /* 加载内存dex，适用于android 5, 5.1 */
@@ -166,17 +165,21 @@ std::unique_ptr<const void *> loadDexAboveAndroid7_1(const char *base, size_t si
     const auto *dex_header = reinterpret_cast<const Header *>(base);
 
     std::ostringstream oss;
-    oss << "check magic number in " << location << " and result should start with dex:" << dex_header->magic_;
+    oss << "check magic number in " << location << " and result should start with dex:"
+        << dex_header->magic_;
     LOGD("%s", oss.str().c_str());
 
     auto func23 = (org_artDexFileOpenMemory23) by_dlsym(artHandle, OpenMemory23);
     LOGD("invoke OpenMemory Method by Pointer and OpenMemory ptr:%p", func23);
+    auto mapDummy = (org_artMemMapMapDummy25) by_dlsym(artHandle, "_ZN3art6MemMap8MapDummyEPKcPhj");
+    void *mem_map = mapDummy(location, (uint8_t *) base, size);
+    LOGD("MapDummy ptr:%p, and mem_map: %p", mapDummy, mem_map);
 
     value = func23((const uint8_t *) base,
                    size,
                    location,
                    dex_header->checksum_,
-                   nullptr,
+                   mem_map,
                    nullptr,
                    &err_msg);
 

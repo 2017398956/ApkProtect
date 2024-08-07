@@ -9,6 +9,7 @@ import com.zhh.jiagu.shell.util.ShellNativeMethod2;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import dalvik.system.DexClassLoader;
 import dalvik.system.DexFile;
@@ -16,7 +17,7 @@ import dalvik.system.DexFile;
 public class MyClassLoader extends DexClassLoader {
 
     private static final String TAG = "MyClassLoader";
-    private ArrayList<Object> cookieArray;
+    private ArrayList<Object> cookieArray = new ArrayList<>();
     private Context mContext;
 
     public MyClassLoader(Context context, ByteBuffer[] dexBuffers, String librarySearchPath,
@@ -46,10 +47,11 @@ public class MyClassLoader extends DexClassLoader {
         //获取Dex中的所有类，支持多dex
         ArrayList<String[]> classNameList = getClassNameList(this.cookieArray);
         int classNameNum = classNameList.size();
-        Log.d(TAG, "dex num: " + classNameNum);
+        Log.d(TAG, "classNameNum num: " + classNameNum);
         //遍历每个dex获取classNameList
         for (int cookiePos = 0; cookiePos < classNameNum; cookiePos++) {
             String[] singleClassNameList = classNameList.get(cookiePos);
+            Log.d(TAG, cookiePos + ":singleClassNameList:" + Arrays.toString(singleClassNameList));
             //遍历每个dex中的classNameList，获取className
             for (int classPos = 0; classPos < singleClassNameList.length; classPos++) {
                 Log.d(TAG, "className: " + singleClassNameList[classPos]);

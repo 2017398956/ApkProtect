@@ -19,7 +19,7 @@ public class RefInvoke {
     public static Object invokeStaticMethod(String class_name, String method_name, Class[] pareType, Object[] pareValues) {
         try {
             Class<?> obj_class = Class.forName(class_name);
-            Method method = obj_class.getMethod(method_name, pareType);
+            Method method = obj_class.getDeclaredMethod(method_name, pareType);
             method.setAccessible(true);
             return method.invoke(null, pareValues);
         } catch (Exception e) {

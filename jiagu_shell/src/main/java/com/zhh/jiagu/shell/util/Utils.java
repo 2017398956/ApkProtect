@@ -7,6 +7,8 @@ import android.content.pm.Signature;
 import android.content.pm.SigningInfo;
 import android.os.Build;
 
+import com.zhh.jiagu.shell.constant.Configs;
+
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -172,8 +174,8 @@ public class Utils {
 
         LogUtil.info("============ 解密后的大小为======" + newdex.length);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q // || Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1
-        ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ||
+                (Configs.TestOpenMemory && Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1)) {
             LogUtil.info("Android 10 及以上");
             ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(newdex);
             ZipInputStream zipInputStream = new ZipInputStream(byteArrayInputStream);
@@ -205,6 +207,7 @@ public class Utils {
             FileOutputStream localFileOutputStream = new FileOutputStream(file);
             localFileOutputStream.write(newdex);
             localFileOutputStream.close();
+            LogUtil.info("Dex 准备完毕");
         } catch (IOException localIOException) {
             throw new RuntimeException(localIOException);
         }
