@@ -33,4 +33,20 @@ struct Header
     uint32_t data_off_;        // unused
 };
 
+struct ClassDef {
+    uint16_t class_idx_;  // index into type_ids_ array for this class
+    uint16_t pad1_;  // padding = 0
+    uint32_t access_flags_;
+    uint16_t superclass_idx_;  // index into type_ids_ array for superclass
+    uint16_t pad2_;  // padding = 0
+    uint32_t interfaces_off_;  // file offset to TypeList
+    uint32_t source_file_idx_;  // index into string_ids_ for source file name
+    uint32_t annotations_off_;  // file offset to annotations_directory_item
+    uint32_t class_data_off_;  // file offset to class_data_item
+    uint32_t static_values_off_;  // file offset to EncodedArray
+    // Returns the valid access flags, that is, Java modifier bits relevant to the ClassDef type
+    // (class or interface). These are all in the lower 16b and do not contain runtime flags.
+    uint32_t GetJavaAccessFlags();
+};
+
 #endif // ifndef _DEXHEADER_H

@@ -9,6 +9,8 @@
 #include "dalvik_system_DexFile.h"
 #include "../byopen/byopen.h"
 #include <sstream>
+#include <iosfwd>
+#include <vector>
 
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "ShellNativeMethod2", __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "ShellNativeMethod2", __VA_ARGS__)
@@ -50,6 +52,8 @@ typedef std::unique_ptr<const void *> (*org_artDexFileOpenMemory23)(const uint8_
 // 执行这个方法后返回的是 mem_map
 typedef void *(*org_artMemMapMapDummy25)(const char *name, uint8_t *addr, size_t byte_count);
 
+typedef const char *(*GetClassDescriptor)(const ClassDef &class_def);
+
 //libart.so指针
 void *artHandle = nullptr;
 
@@ -84,7 +88,7 @@ Java_com_zhh_jiagu_shell_util_ShellNativeMethod2_OpenMemory(JNIEnv *env, jclass 
     if (value) {
         jlongArray array = env->NewLongArray(1);
         env->SetLongArrayRegion(array, 0, 1, (jlong *) value);
-        return reinterpret_cast<jobject *>(array);
+        return (jobject *) array;
     }
     return (jobject *) nullptr;
 }
@@ -161,7 +165,6 @@ std::unique_ptr<const void *> loadDexAboveAndroid7_1(const char *base, size_t si
     const char *location = "Anonymous-DexFile";
     std::string err_msg;
     std::unique_ptr<const void *> value;
-
     const auto *dex_header = reinterpret_cast<const Header *>(base);
 
     std::ostringstream oss;
@@ -179,9 +182,18 @@ std::unique_ptr<const void *> loadDexAboveAndroid7_1(const char *base, size_t si
                    size,
                    location,
                    dex_header->checksum_,
-                   mem_map,
+                   nullptr,
                    nullptr,
                    &err_msg);
+
+//    const ClassDef *class_defs_ = reinterpret_cast<const ClassDef *>(base +
+//                                                                     dex_header->class_defs_off_);
+//    ClassDef class_def = class_defs_[0];
+//    GetClassDescriptor getClassDescriptor = (GetClassDescriptor) by_dlsym(artHandle,
+//                                                                          "_ZN3art2gc4Heap22SafeGetClassDescriptorEPNS_6mirror5ClassE");
+//    LOGD("class_def_size:%d, getClassDescriptor:%p, idx:%d", dex_header->class_defs_size_,
+//         getClassDescriptor, class_def.class_idx_);
+//    LOGD("classNames: %s", getClassDescriptor(class_def));
 
     if (!value) {
         LOGE("fail to load dex in Android 7.1 and err_msg:%s", err_msg.c_str());

@@ -33,9 +33,9 @@ public class ShellMainActivity extends Activity {
                 LogUtil.debug(i + ":" + new String(bytes, i, 1));
             }
             Object cookie = ShellNativeMethod2.OpenMemory(bytes, bytes.length, Build.VERSION.SDK_INT);
-            LogUtil.debug("cookie:" + cookie);
-            ArrayList<long[]> arrayList = new ArrayList<>();
-            arrayList.add((long[]) cookie);
+            LogUtil.debug("cookie:" + Arrays.toString((long[]) cookie));
+            ArrayList<Object> arrayList = new ArrayList<>();
+            arrayList.add(cookie);
             getClassNameList(arrayList);
 
         });
@@ -53,7 +53,7 @@ public class ShellMainActivity extends Activity {
     }
 
     //获取dex中的类名集合
-    private ArrayList<String[]> getClassNameList(ArrayList<long[]> cookieArray) {
+    private ArrayList<String[]> getClassNameList(ArrayList<Object> cookieArray) {
         /*
          * 注意！！！Android5 中是long类型的cookie，Android6、7是Object类型的cookie
          * */
