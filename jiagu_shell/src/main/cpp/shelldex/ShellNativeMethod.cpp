@@ -8,6 +8,7 @@
 #include <android/log.h>
 #include "../byopen/byopen.h"
 #include "dalvik_system_DexFile.h"
+#include "../utils/my_android_log.h"
 #include <dlfcn.h>
 #include <iostream>
 #include <sys/mman.h>
@@ -19,8 +20,6 @@
 #include <unistd.h>
 
 #define  LOG_TAG    "ShellNativeMethod"
-#define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
-#define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 //#ifdef __arm__
 #define Elf_Ehdr Elf32_Ehdr
@@ -81,22 +80,22 @@ int checkFunction(JNINativeMethod *table, const char *name, const char *sig,
                   void(**fnPtrOut)(u4 const *, union JValue *)) {
     int i = 0;
     while (table[i].name != nullptr) {
-        LOGI("dvm native method:%s", table[i].name);
+        LOG_I(LOG_TAG, "dvm native method:%s", table[i].name);
         if ((strcmp(name, table[i].name) == 0) && (strcmp(sig, table[i].signature) == 0)) {
-            LOGI("find method:%s", table[i].name);
+            LOG_I(LOG_TAG, "find method:%s", table[i].name);
             *fnPtrOut = (void (*)(const u4 *, union JValue *)) (table[i].fnPtr);
             return 1;
         }
         i++;
     }
-    LOGI("can not find method:%s", table[i].name);
+    LOG_I(LOG_TAG, "can not find method:%s", table[i].name);
     return 0;
 }
 
 int printCPlusPlusFunction(JNINativeMethod *table) {
     int i = 0;
     while (table[i].name != nullptr) {
-        LOGI("Function name: %s", table[i].name);
+        LOG_I(LOG_TAG, "Function name: %s", table[i].name);
         i++;
     }
     return 0;
@@ -109,20 +108,21 @@ void test() {
     u4 t2 = (size_t) ao;
     size_t t3;
     auto t4 = (size_t) ao;
-    LOGI("sizeof ao:%d, t1:%d, t2:%d, t3:%d, t4:%d", sizeof ao, sizeof t1, sizeof t2, sizeof t3,
-         sizeof t4);
-    LOGI("sizeof ao:%lu, t1:%u, t2:%u, t3:%zu,t4: %zu", ao, t1, t2, t3, t4);
+    LOG_I(LOG_TAG, "sizeof ao:%d, t1:%d, t2:%d, t3:%d, t4:%d", sizeof ao, sizeof t1, sizeof t2,
+          sizeof t3,
+          sizeof t4);
+    LOG_I(LOG_TAG, "sizeof ao:%lu, t1:%u, t2:%u, t3:%zu,t4: %zu", ao, t1, t2, t3, t4);
 
     typedef const char *(*GetVersion)();
     typedef const char *(*GetEmail)(const char *);
     void *libsxjiagu = (void *) by_dlopen("libsxjiagu.so", RTLD_LAZY);
     auto getVersion = (GetVersion) by_dlsym(libsxjiagu, "getVersion");
     auto getEmail = (GetEmail) by_dlsym(libsxjiagu, "_Z8getEmailPKc");
-    LOGI("libsxjiagu: %p, getVersion:%p, getEmail: %p", libsxjiagu, getVersion, getEmail);
-    LOGI("GetVersion:%s", getVersion());
+    LOG_I(LOG_TAG, "libsxjiagu: %p, getVersion:%p, getEmail: %p", libsxjiagu, getVersion, getEmail);
+    LOG_I(LOG_TAG, "GetVersion:%s", getVersion());
     const char *email_prefix = "Email";
-    LOGI("email_prefix ptr: %p", email_prefix);
-    LOGI("GetEmail:%s", getEmail(email_prefix));
+    LOG_I(LOG_TAG, "email_prefix ptr: %p", email_prefix);
+    LOG_I(LOG_TAG, "GetEmail:%s", getEmail(email_prefix));
 }
 
 const char *openMemory22Name = "_ZN3art7DexFile10OpenMemoryEPKhjRKNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEjPNS_6MemMapEPKNS_10OatDexFileEPS9_";
@@ -136,36 +136,36 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     // dexFile = (JNINativeMethod *) dlsym(libdvm, "dvm_dalvik_system_DexFile");
     openMemory22 = (org_artDexFileOpenMemory22) by_dlsym(libart, openMemory22Name);
     if (openMemory22 == nullptr) {
-        LOGI("use sdk 23 openMemory.");
+        LOG_I(LOG_TAG, "use sdk 23 openMemory.");
         openMemory22 = (org_artDexFileOpenMemory22) by_dlsym(libart, openMemory23Name);
     }
-    LOGI("libart: %p, openMemory: %p", libart, openMemory22);
+    LOG_I(LOG_TAG, "libart: %p, openMemory: %p", libart, openMemory22);
     mapDummy = (org_artMemMapMapDummy) by_dlsym(libart, "_ZN3art6MemMap8MapDummyEPKcPhm");
     if (mapDummy == nullptr) {
         mapDummy = (org_artMemMapMapDummy) by_dlsym(libart, "_ZN3art6MemMap8MapDummyEPKcPhj");
     }
-    LOGI("MapDummy:%p", mapDummy);
+    LOG_I(LOG_TAG, "MapDummy:%p", mapDummy);
 
     if (!useOpenMemory) {
         dexFile = static_cast<JNINativeMethod *>(by_dlsym(libart,
                                                           "_ZN3art7DexFile10OpenMemoryEPKhjRKNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEjPNS_6MemMapEPKNS_10OatDexFileEPS9_"));
         if (checkFunction(dexFile, "openDexFile", "([B)I", &openDexFile) == 0) {
             openDexFile = nullptr;
-            LOGI("not found openDexFile method!");
+            LOG_I(LOG_TAG, "not found openDexFile method!");
         } else {
-            LOGI("found openDexFile method!");
+            LOG_I(LOG_TAG, "found openDexFile method!");
         }
     }
     JNIEnv *env = nullptr;
     jint ret = vm->GetEnv((void **) &env, JNI_VERSION_1_6);
     if (ret != JNI_OK) {
-        LOGE("JNI_VERSION_1_6: jni_replace JVM ERROR:GetEnv");
+        LOG_E(LOG_TAG, "JNI_VERSION_1_6: jni_replace JVM ERROR:GetEnv");
         ret = vm->GetEnv((void **) &env, JNI_VERSION_1_4);
         if (ret != JNI_OK) {
-            LOGE("JNI_VERSION_1_4: jni_replace JVM ERROR:GetEnv");
+            LOG_E(LOG_TAG, "JNI_VERSION_1_4: jni_replace JVM ERROR:GetEnv");
             ret = vm->GetEnv((void **) &env, JNI_VERSION_1_2);
             if (ret != JNI_OK) {
-                LOGE("JNI_VERSION_1_2: jni_replace JVM ERROR:GetEnv");
+                LOG_E(LOG_TAG, "JNI_VERSION_1_2: jni_replace JVM ERROR:GetEnv");
                 return JNI_VERSION_1_1;
             }
             return JNI_VERSION_1_2;
@@ -181,7 +181,7 @@ Java_com_zhh_jiagu_shell_util_ShellNativeMethod_loadDexFile(JNIEnv *env, jclass 
                                                             jbyteArray dexBytes,
                                                             jlong dexSize) {
     if (useOpenMemory) {
-        jbyte *bytes = env->GetByteArrayElements(dexBytes, 0);
+        jbyte *bytes = env->GetByteArrayElements(dexBytes, JNI_FALSE);
         int inDexLen = env->GetArrayLength(dexBytes);
         char *pDex = new char[inDexLen + 1];
         const char *location = "";
@@ -190,9 +190,10 @@ Java_com_zhh_jiagu_shell_util_ShellNativeMethod_loadDexFile(JNIEnv *env, jclass 
         memcpy(pDex, bytes, inDexLen);
         pDex[inDexLen] = '\0';
         env->ReleaseByteArrayElements(dexBytes, bytes, 0);
-        const Header *dex_header = reinterpret_cast<const Header *>(pDex);
-        LOGI("获取 dex 对应的 cookie, and checksum: %u, fileSize: %d, dexSize: %lld, inDexLen: %d",
-             dex_header->checksum_, dex_header->file_size_, dexSize, inDexLen);
+        const auto *dex_header = reinterpret_cast<const Header *>(pDex);
+        LOG_I(LOG_TAG,
+              "获取 dex 对应的 cookie, and checksum: %u, fileSize: %d, dexSize: %lld, inDexLen: %d",
+              dex_header->checksum_, dex_header->file_size_, dexSize, inDexLen);
 
         void *mem_map = mapDummy(location, (uint8_t *) pDex, inDexLen + 1);
 //        printCPlusPlusFunction((JNINativeMethod *) mem_map);
@@ -201,9 +202,10 @@ Java_com_zhh_jiagu_shell_util_ShellNativeMethod_loadDexFile(JNIEnv *env, jclass 
                                    dex_header->checksum_,
                                    mem_map,
                                    &err_msg);
-        LOGI("dexBytes: %p, jbytes: %p, pDex: %p, mem_map: %p", dexBytes, bytes, pDex, mem_map);
-        LOGI("dexBytes: %s, jbytes: %s, pDex: %s, mem_map: %s", (uint8_t *) dexBytes,
-             (uint8_t *) bytes, (uint8_t *) pDex, (uint8_t *) mem_map);
+        LOG_I(LOG_TAG, "dexBytes: %p, jbytes: %p, pDex: %p, mem_map: %p", dexBytes, bytes, pDex,
+              mem_map);
+        LOG_I(LOG_TAG, "dexBytes: %s, jbytes: %s, pDex: %s, mem_map: %s", (uint8_t *) dexBytes,
+              (uint8_t *) bytes, (uint8_t *) pDex, (uint8_t *) mem_map);
 //        void *value = openMemory22((uint8_t *) pDex,
 //                                   inDexLen,
 //                                   location,
@@ -211,7 +213,7 @@ Java_com_zhh_jiagu_shell_util_ShellNativeMethod_loadDexFile(JNIEnv *env, jclass 
 //                                   mem_map,
 //                                   nullptr,
 //                                   &err_msg);
-        LOGI("cookie value: %p", value);
+        LOG_I(LOG_TAG, "cookie value: %p", value);
         jlong cookie = replace_cookie(env, value, 22);
         return cookie;
     } else {
@@ -228,7 +230,7 @@ Java_com_zhh_jiagu_shell_util_ShellNativeMethod_loadDexFile(JNIEnv *env, jclass 
             result = -1;
         }
         result = (jint) (size_t) preSult.l;
-        LOGI("openDexFile Function Result is %d", result);
+        LOG_I(LOG_TAG, "openDexFile Function Result is %d", result);
         return result;
     }
 }
@@ -306,7 +308,7 @@ void *fake_dlopen(const char *libpath, int flags) {
     for (k = 0; k < elf->e_shnum; k++, shoff += elf->e_shentsize) {
 
         Elf_Shdr *sh = (Elf_Shdr *) shoff;
-        LOGI("%s: k=%d shdr=%p type=%x", __func__, k, sh, sh->sh_type);
+        LOG_I(LOG_TAG, "%s: k=%d shdr=%p type=%x", __func__, k, sh, sh->sh_type);
 
         switch (sh->sh_type) {
 
@@ -341,7 +343,7 @@ void *fake_dlopen(const char *libpath, int flags) {
 
 #undef fatal
 
-    LOGI("%s: ok, dynsym = %p, dynstr = %p", libpath, ctx->dynsym, ctx->dynstr);
+    LOG_I(LOG_TAG, "%s: ok, dynsym = %p, dynstr = %p", libpath, ctx->dynsym, ctx->dynstr);
 
     return ctx;
 

@@ -1,7 +1,7 @@
 #include "AESUtil.h"
 #include <string>
-#include "android_log.h"
 #include "xxtea.h"
+#include "utils/my_android_log.h"
 
 static const char *TAG = "JiaGu_SXJY";
 
@@ -21,7 +21,7 @@ JNIEXPORT jbyteArray JNICALL Java_com_zhh_jiagu_shell_util_AESUtil_encrypt
     jboolean isCopy = false;
     jbyte *dataBuff = env->GetByteArrayElements(data, &isCopy);
     jsize dataSize = env->GetArrayLength(data);
-    LOGD(TAG, "data size----%d", dataSize);
+    LOG_D(TAG, "data size----%d", dataSize);
 
     const char *key = "zhh_jiagu_gfdec";
     size_t len;
@@ -29,7 +29,7 @@ JNIEXPORT jbyteArray JNICALL Java_com_zhh_jiagu_shell_util_AESUtil_encrypt
     //使用isCopy 与GetByteArrayElements保持一致
     env->ReleaseByteArrayElements(data, encrypt_data, isCopy);
 
-    LOGE(TAG, "encrypt_data size === %zu", len);
+    LOG_E(TAG, "encrypt_data size === %zu", len);
 
     //将char*转为jbyteArray
     jbyteArray array = env->NewByteArray(len);
@@ -49,7 +49,7 @@ JNIEXPORT jbyteArray JNICALL Java_com_zhh_jiagu_shell_util_AESUtil_decrypt
     jbyte *dataBuff = env->GetByteArrayElements(data, &isCopy);
     jsize dataSize = env->GetArrayLength(data);
 
-    LOGD(TAG, "data size ==== %d", dataSize);
+    LOG_D(TAG, "data size ==== %d", dataSize);
 
     //decrypt
     const char *key = "zhh_jiagu_gfdec";
@@ -57,7 +57,7 @@ JNIEXPORT jbyteArray JNICALL Java_com_zhh_jiagu_shell_util_AESUtil_decrypt
     jbyte *decrypt_data = (jbyte *) xxtea_decrypt(dataBuff, dataSize, key, &len);
     //env->ReleaseByteArrayElements(data,decrypt_data,isCopy);
 
-    LOGD(TAG, "decrypt_data size====%zu", len);
+    LOG_D(TAG, "decrypt_data size====%zu", len);
 
     //将char*转为jbyteArray
     jbyteArray array = env->NewByteArray(len);
@@ -74,7 +74,7 @@ const char *getVersion() {
 #endif
 
 const char *getEmail(const char *prefix) {
-    char *result = new char [strlen(prefix) + 19];
+    char *result = new char[strlen(prefix) + 19];
     sprintf(result, "%s_%s", prefix, "2017398956@qq.com");
     return result;
 }

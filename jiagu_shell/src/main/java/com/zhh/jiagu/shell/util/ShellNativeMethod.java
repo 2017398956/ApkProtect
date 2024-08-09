@@ -1,7 +1,7 @@
 package com.zhh.jiagu.shell.util;
 
 /**
- * @deprecated use {@link ShellNativeMethod2#OpenMemory(byte[], long, int)} instead.
+ * @deprecated use {@link ShellNativeMethod2#openMemory(byte[], long, int)} instead.
  */
 public class ShellNativeMethod {
     static {

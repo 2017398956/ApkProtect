@@ -4,16 +4,13 @@ import android.app.Activity;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 
 import com.zhh.jiagu.shell.util.AESUtil;
 import com.zhh.jiagu.shell.util.LogUtil;
 import com.zhh.jiagu.shell.util.RefInvoke;
-import com.zhh.jiagu.shell.util.ShellNativeMethod;
 import com.zhh.jiagu.shell.util.ShellNativeMethod2;
 import com.zhh.jiagu.shell.util.Utils;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -28,11 +25,8 @@ public class ShellMainActivity extends Activity {
         AESUtil.loadJiaGuLibrary();
         findViewById(R.id.btn_test).setOnClickListener(v -> {
             byte[] bytes = Utils.readAssetsClassesDex(this, "classes.dex");
-//            LogUtil.debug("cookie:" + ShellNativeMethod.loadDexFile(bytes, bytes.length));
-            for (int i = 0; i < 4; i++) {
-                LogUtil.debug(i + ":" + new String(bytes, i, 1));
-            }
-            Object cookie = ShellNativeMethod2.OpenMemory(bytes, bytes.length, Build.VERSION.SDK_INT);
+            LogUtil.debug("dex file magic number should equal to dex, and magic number is: " + new String(bytes, 0, 3));
+            Object cookie = ShellNativeMethod2.openMemory(bytes, bytes.length, Build.VERSION.SDK_INT);
             LogUtil.debug("cookie:" + Arrays.toString((long[]) cookie));
             ArrayList<Object> arrayList = new ArrayList<>();
             arrayList.add(cookie);

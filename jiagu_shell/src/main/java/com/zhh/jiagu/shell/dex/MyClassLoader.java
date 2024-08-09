@@ -34,7 +34,7 @@ public class MyClassLoader extends DexClassLoader {
             dexbuffer.get(dex);
             Log.d(TAG, "dex前3个字节: " + dex[0] + dex[1] + dex[2]);
             //调用native层方法, OpenMemory返回的是DexFile对象，这是不是说明cookie其实就是DexFile的地址？尤其是对int型的cookie来说
-            Object cookie = ShellNativeMethod2.OpenMemory(dex, dexlen, Build.VERSION.SDK_INT);
+            Object cookie = ShellNativeMethod2.openMemory(dex, dexlen, Build.VERSION.SDK_INT);
             addIntoCookieArray(cookie);
         }
     }

@@ -23,6 +23,7 @@
  * includes
  */
 #include "byopen.h"
+#include "../utils/my_phone_info_util.h"
 
 
 #include <dlfcn.h>
@@ -101,113 +102,6 @@ static pthread_mutex_t *g_linker_mutex = by_null;
  */
 extern __attribute((weak)) by_int_t
 dl_iterate_phdr(by_int_t (*)(struct dl_phdr_info *, size_t, by_pointer_t), by_pointer_t);
-
-/* //////////////////////////////////////////////////////////////////////////////////////
- * declaration
- */
-
-/**
- * 获取系统属性值
- * Android 8 sdk 26 及以后 system_properties.h 中才有的方法
- */
-void __attribute__((weak)) __system_property_read_callback(
-        const prop_info *info,
-        void (*callback)(void *cookie, const char *name, const char *value, uint32_t serial),
-        by_void_t *cookie);
-
-/**
- * 获取系统属性值
- * Android 8 之前获取系统属性的方法
- */
-int __attribute__((weak)) __system_property_get(by_char_t const *name, by_char_t *value);
-
-/* //////////////////////////////////////////////////////////////////////////////////////
- * private implementation
- */
-
-/* Technical note regarding reading system properties.
- *
- * Try to use the new __system_property_read_callback API that appeared in
- * Android O / API level 26 when available. Otherwise use the deprecated
- * __system_property_get function.
- *
- * For more technical details from an NDK maintainer, see:
- * https://bugs.chromium.org/p/chromium/issues/detail?id=392191#c17
- */
-
-/**
- * callback used with __system_property_read_callback
- */
-static void by_rt_prop_read_int(by_pointer_t cookie, by_char_t const *name, by_char_t const *value,
-                                uint32_t serial) {
-    *(by_int_t *) cookie = atoi(value);
-    (void) name;
-    (void) serial;
-}
-
-/**
- * 读取命令行执行后的结果
- * @param cmd
- * @param data
- * @param maxn
- * @return 命令行执行结果的 int 值
- */
-static by_int_t by_rt_process_read(by_char_t const *cmd, by_char_t *data, by_size_t maxn) {
-    by_int_t n = 0;
-    FILE *p = popen(cmd, "r");
-    if (p) {
-        by_char_t buf[256] = {0};
-        by_char_t *pos = data;
-        by_char_t *end = data + maxn;
-        while (!feof(p)) {
-            if (fgets(buf, sizeof(buf), p)) {
-                by_int_t len = strlen(buf);
-                if (pos + len < end) {
-                    memcpy(pos, buf, len);
-                    pos += len;
-                    n += len;
-                }
-            }
-        }
-
-        *pos = '\0';
-        pclose(p);
-    }
-    return n;
-}
-
-/**
- * get system property integer
- * 根据 name 获取系统对应的属性值
- */
-static int by_rt_system_property_get_int(const char *name) {
-    by_assert_and_check_return_val(name, -1);
-    int result = 0;
-    if (__system_property_read_callback) {
-        const prop_info *info = __system_property_find(name);
-        if (info) __system_property_read_callback(info, &by_rt_prop_read_int, &result);
-    } else if (__system_property_get) {
-        by_char_t value[PROP_VALUE_MAX] = {0};
-        if (__system_property_get(name, value) >= 1)
-            result = atoi(value);
-    } else {
-        // 如果系统中没有上面两种方法，那么直接使用命令行获取属性 name 的值
-        by_char_t cmd[256];
-        by_char_t value[PROP_VALUE_MAX];
-        snprintf(cmd, sizeof(cmd), "getprop %s", name);
-        if (by_rt_process_read(cmd, value, sizeof(value)) > 1)
-            result = atoi(value);
-    }
-    return result;
-}
-
-/**
- * 获取 Android 系统版本号
- * @return Android 版本对应的数字
- */
-static int by_rt_api_level() {
-    return by_rt_system_property_get_int("ro.build.version.sdk");
-}
 
 // find the load bias address from the base address
 static void *by_fake_find_biasaddr_from_baseaddr(void *baseaddr) {
