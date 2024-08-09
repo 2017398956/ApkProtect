@@ -22,7 +22,9 @@
 /*Android 6*/
 #define OpenMemory23 "_ZN3art7DexFile10OpenMemoryEPKhjRKNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEjPNS_6MemMapEPKNS_10OatDexFileEPS9_"
 /*Android 7.1, 与 Android 6一致，但发现了另一个 OpenMemory 方法。OpenMemory25 未确定方法的具体参数，用于测试*/
-#define OpenMemory25 "_ZN3art7DexFile10OpenMemoryERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEEjPNS_6MemMapEPS7_"
+// FIXME: 这里是从 64 位模拟器获取的值，由于看不到源码，参数好像和 OpenMemory23 不一样，会直接 crash
+#define OpenMemory25_64_1 "_ZN3art7DexFile10OpenMemoryERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEEjPNS_6MemMapEPS7_"
+#define OpenMemory25_64_2 "_ZN3art7DexFile10OpenMemoryEPKhmRKNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEjPNS_6MemMapEPKNS_10OatDexFileEPS9_"
 
 /*定义函数指针*/
 typedef void *(*org_artDexFileOpenMemory21)(const uint8_t *base,
@@ -176,8 +178,10 @@ std::unique_ptr<const void *> loadDexAboveAndroid7_1(const char *base, size_t si
     oss << "check magic number in " << location << " and result should start with dex:"
         << dex_header->magic_;
     LOG_D(LOG_TAG, "%s", oss.str().c_str());
-
     auto func23 = (org_artDexFileOpenMemory23) by_dlsym(artHandle, OpenMemory23);
+    if (func23 == nullptr) {
+        func23 = (org_artDexFileOpenMemory23) by_dlsym(artHandle, OpenMemory25_64_2);
+    }
     LOG_D(LOG_TAG, "invoke OpenMemory Method by Pointer and OpenMemory ptr:%p", func23);
     auto mapDummy = (org_artMemMapMapDummy25) by_dlsym(artHandle, "_ZN3art6MemMap8MapDummyEPKcPhj");
     void *mem_map = mapDummy(location, (uint8_t *) base, size);
