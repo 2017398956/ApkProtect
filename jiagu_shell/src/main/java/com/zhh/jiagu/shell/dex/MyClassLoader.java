@@ -80,7 +80,6 @@ public class MyClassLoader extends DexClassLoader {
         return clazz;
     }
 
-
     @Override
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
         //其实并不需要改写，就是添加几个日志语句

@@ -152,6 +152,18 @@ std::unique_ptr<const void *> loadDexAboveAndroid6(const char *base, size_t size
 
 }
 
+// FIXME: 测试获取 dex 中的 class 列表
+void testGetClassNameList(const char *base, const Header *dex_header) {
+    const ClassDef *class_defs_ = reinterpret_cast<const ClassDef *>(base +
+                                                                     dex_header->class_defs_off_);
+    ClassDef class_def = class_defs_[0];
+    GetClassDescriptor getClassDescriptor = (GetClassDescriptor) by_dlsym(artHandle,
+                                                                          "_ZN3art2gc4Heap22SafeGetClassDescriptorEPNS_6mirror5ClassE");
+    LOG_D(LOG_TAG, "class_def_size:%d, getClassDescriptor:%p, idx:%d", dex_header->class_defs_size_,
+          getClassDescriptor, class_def.class_idx_);
+    LOG_D(LOG_TAG, "classNames: %s", getClassDescriptor(class_def));
+}
+
 /* 加载内存dex，适用于android 7.1 */
 std::unique_ptr<const void *> loadDexAboveAndroid7_1(const char *base, size_t size) {
 
@@ -179,14 +191,7 @@ std::unique_ptr<const void *> loadDexAboveAndroid7_1(const char *base, size_t si
                    nullptr,
                    &err_msg);
 
-//    const ClassDef *class_defs_ = reinterpret_cast<const ClassDef *>(base +
-//                                                                     dex_header->class_defs_off_);
-//    ClassDef class_def = class_defs_[0];
-//    GetClassDescriptor getClassDescriptor = (GetClassDescriptor) by_dlsym(artHandle,
-//                                                                          "_ZN3art2gc4Heap22SafeGetClassDescriptorEPNS_6mirror5ClassE");
-//    LOG_D(LOG_TAG, "class_def_size:%d, getClassDescriptor:%p, idx:%d", dex_header->class_defs_size_,
-//         getClassDescriptor, class_def.class_idx_);
-//    LOG_D(LOG_TAG, "classNames: %s", getClassDescriptor(class_def));
+    // testGetClassNameList(base, dex_header);
 
     if (!value) {
         LOG_E(LOG_TAG, "fail to load dex in Android 7.1 and err_msg:%s", err_msg.c_str());

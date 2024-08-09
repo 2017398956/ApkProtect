@@ -51,7 +51,7 @@ public class ShellMainActivity extends Activity {
         /*
          * 注意！！！Android5 中是long类型的cookie，Android6、7是Object类型的cookie
          * */
-        ArrayList<String[]> classNameList = new ArrayList<String[]>();
+        ArrayList<String[]> classNameList = new ArrayList<>();
         int cookieNum = cookieArray.size();
 
         //系统API判断
