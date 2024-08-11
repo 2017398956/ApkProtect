@@ -69,7 +69,7 @@ public class StubApplication extends Application {
         // AESUtil.loadJiaGuLibrary();
         AESUtil.loadJiaGuLibrary(newNativeLibraryDir.getAbsolutePath() + File.separator + AESUtil.JIA_GU_NATIVE_LIBRARY);
         LogUtil.info("load jiagu library.");
-        // 加载dex，并解密出原app的dex文件进行加载
+        // 加载 dex，并解密出原 app 的 dex 文件进行加载
         boolean result = LoadDexUtil.decodeDexAndReplace(this, getAppVersionCode());
 
         if (result) {

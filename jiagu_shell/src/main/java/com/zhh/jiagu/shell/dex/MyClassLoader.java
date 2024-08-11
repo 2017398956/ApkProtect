@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Build;
 import android.util.Log;
 
+import com.zhh.jiagu.shell.util.LogUtil;
 import com.zhh.jiagu.shell.util.RefInvoke;
 import com.zhh.jiagu.shell.util.ShellNativeMethod2;
 
@@ -27,14 +28,14 @@ public class MyClassLoader extends DexClassLoader {
 
         // 反射调用 openMemory 方法加载多个 dex
         // 待 JNI 实现
-        for (ByteBuffer dexbuffer : dexBuffers) {
-            int dexlen = dexbuffer.limit() - dexbuffer.position();
-            Log.d(TAG, "dexbuffer.capacity(): " + dexlen);
-            byte[] dex = new byte[dexlen];
-            dexbuffer.get(dex);
-            Log.d(TAG, "dex前3个字节: " + dex[0] + dex[1] + dex[2]);
-            //调用native层方法, OpenMemory返回的是DexFile对象，这是不是说明cookie其实就是DexFile的地址？尤其是对int型的cookie来说
-            Object cookie = ShellNativeMethod2.openMemory(dex, dexlen, Build.VERSION.SDK_INT);
+        for (ByteBuffer dexBuffer : dexBuffers) {
+            int dexLen = dexBuffer.limit() - dexBuffer.position();
+            LogUtil.debug(TAG, "dex file length:" + dexLen);
+            byte[] dex = new byte[dexLen];
+            dexBuffer.get(dex);
+            // 调用 native 层方法, OpenMemory 返回的是 DexFile 对象，这是不是说明 cookie其实就是 DexFile 的地址？
+            // 尤其是对 int 型的 cookie 来说
+            Object cookie = ShellNativeMethod2.openMemory(dex, dexLen, Build.VERSION.SDK_INT);
             addIntoCookieArray(cookie);
         }
     }
@@ -42,19 +43,17 @@ public class MyClassLoader extends DexClassLoader {
     //重写findClass方法
     @Override
     protected Class<?> findClass(String name) throws ClassNotFoundException {
+        LogUtil.debug(TAG, "before findClass " + name);
         Class<?> clazz = null;
-
         //获取Dex中的所有类，支持多dex
         ArrayList<String[]> classNameList = getClassNameList(this.cookieArray);
         int classNameNum = classNameList.size();
-        Log.d(TAG, "classNameNum num: " + classNameNum);
         //遍历每个dex获取classNameList
         for (int cookiePos = 0; cookiePos < classNameNum; cookiePos++) {
             String[] singleClassNameList = classNameList.get(cookiePos);
-            Log.d(TAG, cookiePos + ":singleClassNameList:" + Arrays.toString(singleClassNameList));
-            //遍历每个dex中的classNameList，获取className
+            LogUtil.debug(TAG, cookiePos + ":singleClassNameList " + Arrays.toString(singleClassNameList));
+            // 遍历每个 dex 中的 classNameList，获取 className
             for (int classPos = 0; classPos < singleClassNameList.length; classPos++) {
-                Log.d(TAG, "className: " + singleClassNameList[classPos]);
                 //如果找到了需要加载的类
                 if (singleClassNameList[classPos].equals(name)) {
                     clazz = defineClassNative(
@@ -62,13 +61,14 @@ public class MyClassLoader extends DexClassLoader {
                             this.mContext.getClassLoader(),
                             this.cookieArray.get(cookiePos)
                     );
+                    break;
                 } else {
                     //这一步存疑，都不是要加载的类为什么还有加载？？？
-                    clazz = defineClassNative(
-                            singleClassNameList[classPos].replace('.', '/'),
-                            this.mContext.getClassLoader(),
-                            this.cookieArray.get(cookiePos)
-                    );
+//                    clazz = defineClassNative(
+//                            singleClassNameList[classPos].replace('.', '/'),
+//                            this.mContext.getClassLoader(),
+//                            this.cookieArray.get(cookiePos)
+//                    );
                 }
             }
         }
@@ -76,55 +76,55 @@ public class MyClassLoader extends DexClassLoader {
         if (clazz == null) {
             super.findClass(name);
         }
-
+        LogUtil.debug(TAG, "find class " + name + " ? " + (clazz != null));
         return clazz;
     }
 
     @Override
     protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
         //其实并不需要改写，就是添加几个日志语句
-        Log.d(TAG, "loadClass: " + name + "resolve: " + resolve);
+        Log.d(TAG, "loadClass: " + name + " resolve: " + resolve);
         Class<?> clazz = super.loadClass(name, resolve);
         if (clazz == null) {
-            Log.e(TAG, "loadClass failed");
+            LogUtil.error(TAG, "loadClass " + name + " failed!!!");
+        } else {
+            LogUtil.debug(TAG, "load Class:" + name + " success!!!");
         }
         return clazz;
     }
 
-    //反射调用defineNative方法加载类
+    // 反射调用 defineNative 方法加载类
     private Class defineClassNative(String name, ClassLoader loader, Object cookie) {
+        LogUtil.debug(TAG, "defineClassNative's className:" + name + " classLoader:" + loader);
         /*
-         * Android5~6的defineClassNative没有DexFile参数
-         * Android7~ 的defineClassNative多了DexFile参数
+         * Android 5~6 的 defineClassNative 没有 DexFile 参数
+         * Android 7~ 的 defineClassNative 多了 DexFile 参数
          * */
         Class<?> clazz = null;
 
         //系统API判断
         if (Build.VERSION.SDK_INT < 23) {
             // ~ Android5
-            clazz = (Class) RefInvoke.invokeMethod(
-                    "dalvik.system.DexFile",
+            clazz = (Class) RefInvoke.invokeStaticMethod(
+                    DexFile.class.getName(),
                     "defineClassNative",
                     new Class[]{String.class, ClassLoader.class, long.class},
-                    null,
-                    new Object[]{name, loader, (long) cookie}
+                    new Object[]{name, loader, cookie}
             );
         } else if (Build.VERSION.SDK_INT == 23) {
             //Android 6
-            clazz = (Class) RefInvoke.invokeMethod(
-                    "dalvik.system.DexFile",
+            clazz = (Class) RefInvoke.invokeStaticMethod(
+                    DexFile.class.getName(),
                     "defineClassNative",
                     new Class[]{String.class, ClassLoader.class, Object.class},
-                    null,
                     new Object[]{name, loader, cookie}
             );
         } else {
             //Android 7 ~
-            clazz = (Class) RefInvoke.invokeMethod(
-                    "dalvik.system.DexFile",
+            clazz = (Class) RefInvoke.invokeStaticMethod(
+                    DexFile.class.getName(),
                     "defineClassNative",
                     new Class[]{String.class, ClassLoader.class, Object.class, DexFile.class},
-                    null,
                     new Object[]{name, loader, cookie, null} /*设置为空应该没问题吧，反正也不会用到类加载器*/
             );
         }
@@ -132,7 +132,7 @@ public class MyClassLoader extends DexClassLoader {
 
     }
 
-    //获取dex中的类名集合
+    //获取 dex 中的类名集合
     private ArrayList<String[]> getClassNameList(ArrayList<Object> cookieArray) {
         /*
          * 注意！！！Android5 中是long类型的cookie，Android6、7是Object类型的cookie
@@ -161,6 +161,7 @@ public class MyClassLoader extends DexClassLoader {
                         new Class[]{Object.class},
                         new Object[]{cookieArray.get(i)}
                 );
+                LogUtil.debug(TAG, cookieArray.get(i) + " getClassNameList:" + Arrays.toString(singleDexClassNameList));
                 classNameList.add(singleDexClassNameList);
             }
         }

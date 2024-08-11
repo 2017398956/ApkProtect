@@ -12,6 +12,9 @@
 #include <sstream>
 #include <iosfwd>
 #include <vector>
+#include <ctime>
+#include <chrono>
+#include <sys/time.h>
 
 #define LOG_TAG  "shell_native_method2"
 /* 以下是 OpenMemory函数在内存中对外的方法名 */
@@ -21,10 +24,13 @@
 #define OpenMemory22 "_ZN3art7DexFile10OpenMemoryEPKhjRKNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEjPNS_6MemMapEPKNS_7OatFileEPS9_"
 /*Android 6*/
 #define OpenMemory23 "_ZN3art7DexFile10OpenMemoryEPKhjRKNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEjPNS_6MemMapEPKNS_10OatDexFileEPS9_"
-/*Android 7.1, 与 Android 6一致，但发现了另一个 OpenMemory 方法。OpenMemory25 未确定方法的具体参数，用于测试*/
-// FIXME: 这里是从 64 位模拟器获取的值，由于看不到源码，参数好像和 OpenMemory23 不一样，会直接 crash
-#define OpenMemory25_64_1 "_ZN3art7DexFile10OpenMemoryERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEEjPNS_6MemMapEPS7_"
-#define OpenMemory25_64_2 "_ZN3art7DexFile10OpenMemoryEPKhmRKNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEjPNS_6MemMapEPKNS_10OatDexFileEPS9_"
+#define OpenMemory23_32_64 "_ZN3art7DexFile10OpenMemoryERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEEjPNS_6MemMapEPS7_"
+#define OpenMemory23_64 "_ZN3art7DexFile10OpenMemoryEPKhmRKNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEjPNS_6MemMapEPKNS_10OatDexFileEPS9_"
+
+/*Android 7.1, 与 Android 6一致，*/
+// FIXME: 这里是从 64 位模拟器获取的值，由于看不到源码，会直接 crash
+#define OpenMemory25_32_64 OpenMemory23_32_64
+#define OpenMemory25_64 OpenMemory23_64
 
 /*定义函数指针*/
 typedef void *(*org_artDexFileOpenMemory21)(const uint8_t *base,
@@ -74,19 +80,22 @@ jobject *openMemory(JNIEnv *env, jclass clazz, jbyteArray dex_bytes, jlong dex_s
         value = loadDexInAndroid5(sdk_int, (char *) bytes, (size_t) dex_size);
     } else if (sdk_int < 25) {/* android 6.0 7.0 */
         LOG_D(LOG_TAG, "coming into OpenMemoryNative method in Android 6 and above");
-        value = loadDexAboveAndroid6((char *) bytes, (size_t) dex_size).get();
+        value = loadDexAboveAndroid7_1((char *) bytes, (size_t) dex_size).get();
     } else {/* android 7.1 */
         LOG_D(LOG_TAG, "coming into OpenMemoryNative method in Android 7.1");
         value = loadDexAboveAndroid7_1((char *) bytes, (size_t) dex_size).get();
     }
 
     if (value) {
+        LOGD("cookie ptr:%p, %p", value, &value);
         jlongArray array = env->NewLongArray(1);
-        env->SetLongArrayRegion(array, 0, 1, (jlong *) value);
+        env->SetLongArrayRegion(array, 0, 1, (jlong *) &value);
         return (jobject *) array;
     }
     return (jobject *) nullptr;
 }
+
+int dex_count = 0;
 
 /* 加载内存dex，适用于android 5, 5.1 */
 void *loadDexInAndroid5(int sdk_int, const char *base, size_t size) {
@@ -127,7 +136,7 @@ void *loadDexInAndroid5(int sdk_int, const char *base, size_t size) {
 
 }
 
-/* 加载内存dex，适用于android 6.0 7.0 */
+/* (原方法，使用 loadDexAboveAndroid7_1 代替) 加载内存dex，适用于android 6.0 7.0 */
 std::unique_ptr<const void *> loadDexAboveAndroid6(const char *base, size_t size) {
 
     std::string location = "Anonymous-DexFile";
@@ -166,10 +175,12 @@ void testGetClassNameList(const char *base, const Header *dex_header) {
     LOG_D(LOG_TAG, "classNames: %s", getClassDescriptor(class_def));
 }
 
-/* 加载内存dex，适用于android 7.1 */
+/* 加载内存dex，适用于android 6.0 7.0 7.1 */
 std::unique_ptr<const void *> loadDexAboveAndroid7_1(const char *base, size_t size) {
-
-    const char *location = "Anonymous-DexFile";
+    std::string dex_name = "Anonymous-DexFile";
+    dex_count++;
+    dex_name.append(std::to_string(dex_count));
+    const char *location = dex_name.c_str();
     std::string err_msg;
     std::unique_ptr<const void *> value;
     const auto *dex_header = reinterpret_cast<const Header *>(base);
@@ -180,12 +191,19 @@ std::unique_ptr<const void *> loadDexAboveAndroid7_1(const char *base, size_t si
     LOG_D(LOG_TAG, "%s", oss.str().c_str());
     auto func23 = (org_artDexFileOpenMemory23) by_dlsym(artHandle, OpenMemory23);
     if (func23 == nullptr) {
-        func23 = (org_artDexFileOpenMemory23) by_dlsym(artHandle, OpenMemory25_64_2);
+        LOGI("current abi is x64");
+        func23 = (org_artDexFileOpenMemory23) by_dlsym(artHandle, OpenMemory25_64);
     }
     LOG_D(LOG_TAG, "invoke OpenMemory Method by Pointer and OpenMemory ptr:%p", func23);
     auto mapDummy = (org_artMemMapMapDummy25) by_dlsym(artHandle, "_ZN3art6MemMap8MapDummyEPKcPhj");
-    void *mem_map = mapDummy(location, (uint8_t *) base, size);
-    LOG_D(LOG_TAG, "MapDummy ptr:%p, and mem_map: %p", mapDummy, mem_map);
+    if (mapDummy) {
+        // 64 位
+        mapDummy = (org_artMemMapMapDummy25) by_dlsym(artHandle, "_ZN3art6MemMap8MapDummyEPKcPhm");
+    }
+    if (mapDummy) {
+        void *mem_map = mapDummy(location, (uint8_t *) base, size);
+        LOG_D(LOG_TAG, "MapDummy ptr:%p, and mem_map: %p", mapDummy, mem_map);
+    }
 
     value = func23((const uint8_t *) base,
                    size,

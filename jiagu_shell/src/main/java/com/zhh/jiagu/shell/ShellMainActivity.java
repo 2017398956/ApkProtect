@@ -61,7 +61,7 @@ public class ShellMainActivity extends Activity {
                 String[] singleDexClassNameList = (String[]) RefInvoke.invokeStaticMethod(
                         DexFile.class.getName(),
                         "getClassNameList",
-                        new Class[]{long.class},
+                        new Class[]{int.class},
                         new Object[]{cookieArray.get(i)}
                 );
                 classNameList.add(singleDexClassNameList);

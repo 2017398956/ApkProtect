@@ -120,7 +120,9 @@ public class LoadDexUtil {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && trueDexData != null && trueDexData.length > 0) {
                 LogUtil.info("trueDexData size:" + trueDexData.length);
                 dLoader = new InMemoryDexClassLoader(trueDexData, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader);
-            } else if (Configs.TestOpenMemory && Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1 && trueDexData != null && trueDexData.length > 0) {
+            } else if (Configs.TestOpenMemory23 && Build.VERSION.SDK_INT == Build.VERSION_CODES.M && trueDexData != null && trueDexData.length > 0) {
+                dLoader = new MyClassLoader(context, trueDexData, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader, "", odexPath);
+            } else if (Configs.TestOpenMemory25 && Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1 && trueDexData != null && trueDexData.length > 0) {
                 dLoader = new MyClassLoader(context, trueDexData, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader, dexFilePath, odexPath);
             } else {
                 dLoader = new DexClassLoader(dexFilePath, odexPath, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader);
@@ -166,9 +168,11 @@ public class LoadDexUtil {
                 LoadedApk_CLASS, loadedApkInfo, "mApplicationInfo");
         mApplicationInfo.className = srcApplicationClassName;
         // 执行 makeApplication（false,null）
-        Application app = (Application) RefInvoke.invokeMethod(LoadedApk_CLASS,
+        Application app = null;
+        Object obj = RefInvoke.invokeMethod(LoadedApk_CLASS,
                 "makeApplication", loadedApkInfo,
                 new Class[]{boolean.class, Instrumentation.class}, new Object[]{false, null});
+        LogUtil.debug("new application:" + obj);
         LogUtil.info("makeApplication ============ app : " + app);
 
         // 由于源码 ActivityThread 中 handleBindApplication 方法绑定 Application 后会调用 installContentProviders，

@@ -14,7 +14,15 @@ public class LogUtil {
         Log.d(TAG, msg);
     }
 
+    public static void debug(String TAG, String msg) {
+        Log.d(TAG, msg);
+    }
+
     public static void error(String msg){
+        Log.e(TAG,msg);
+    }
+
+    public static void error(String TAG, String msg){
         Log.e(TAG,msg);
     }
 
