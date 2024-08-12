@@ -168,11 +168,9 @@ public class LoadDexUtil {
                 LoadedApk_CLASS, loadedApkInfo, "mApplicationInfo");
         mApplicationInfo.className = srcApplicationClassName;
         // 执行 makeApplication（false,null）
-        Application app = null;
-        Object obj = RefInvoke.invokeMethod(LoadedApk_CLASS,
+        Application app = (Application) RefInvoke.invokeMethod(LoadedApk_CLASS,
                 "makeApplication", loadedApkInfo,
                 new Class[]{boolean.class, Instrumentation.class}, new Object[]{false, null});
-        LogUtil.debug("new application:" + obj);
         LogUtil.info("makeApplication ============ app : " + app);
 
         // 由于源码 ActivityThread 中 handleBindApplication 方法绑定 Application 后会调用 installContentProviders，

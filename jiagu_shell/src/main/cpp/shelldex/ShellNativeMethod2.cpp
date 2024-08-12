@@ -87,7 +87,7 @@ jobject *openMemory(JNIEnv *env, jclass clazz, jbyteArray dex_bytes, jlong dex_s
     }
 
     if (value) {
-        LOGD("cookie ptr:%p, %p", value, &value);
+        LOGD("cookie ptr:%lld, %p", (jlong) value, &value);
         jlongArray array = env->NewLongArray(1);
         env->SetLongArrayRegion(array, 0, 1, (jlong *) &value);
         return (jobject *) array;
@@ -187,7 +187,7 @@ std::unique_ptr<const void *> loadDexAboveAndroid7_1(const char *base, size_t si
 
     std::ostringstream oss;
     oss << "check magic number in " << location << " and result should start with dex:"
-        << dex_header->magic_;
+        << dex_header->magic_ << " class_defs_size:" << dex_header->class_defs_size_;
     LOG_D(LOG_TAG, "%s", oss.str().c_str());
     auto func23 = (org_artDexFileOpenMemory23) by_dlsym(artHandle, OpenMemory23);
     if (func23 == nullptr) {
@@ -200,8 +200,9 @@ std::unique_ptr<const void *> loadDexAboveAndroid7_1(const char *base, size_t si
         // 64 位
         mapDummy = (org_artMemMapMapDummy25) by_dlsym(artHandle, "_ZN3art6MemMap8MapDummyEPKcPhm");
     }
+    void *mem_map = nullptr;
     if (mapDummy) {
-        void *mem_map = mapDummy(location, (uint8_t *) base, size);
+        mem_map = mapDummy(location, (uint8_t *) base, size);
         LOG_D(LOG_TAG, "MapDummy ptr:%p, and mem_map: %p", mapDummy, mem_map);
     }
 
@@ -209,7 +210,7 @@ std::unique_ptr<const void *> loadDexAboveAndroid7_1(const char *base, size_t si
                    size,
                    location,
                    dex_header->checksum_,
-                   nullptr,
+                   mem_map,
                    nullptr,
                    &err_msg);
 
