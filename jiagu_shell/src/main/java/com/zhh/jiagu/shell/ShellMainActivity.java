@@ -13,6 +13,7 @@ import com.zhh.jiagu.shell.util.Utils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import dalvik.system.DexFile;
 
@@ -25,8 +26,13 @@ public class ShellMainActivity extends Activity {
         AESUtil.loadJiaGuLibrary();
         findViewById(R.id.btn_test).setOnClickListener(v -> {
             byte[] bytes = Utils.readAssetsClassesDex(this, "classes.dex");
+            byte[] bytes3 = Utils.readAssetsClassesDex(this, "classes3.dex");
             LogUtil.debug("dex file magic number should equal to dex, and magic number is: " + new String(bytes, 0, 3));
-            Object cookie = ShellNativeMethod2.openMemory(bytes, bytes.length, Build.VERSION.SDK_INT);
+            List<byte[]> temp = new ArrayList<>();
+            temp.add(bytes);
+            temp.add(bytes3);
+//            Object cookie = ShellNativeMethod2.openMemory(bytes, bytes.length, Build.VERSION.SDK_INT);
+            Object cookie = ShellNativeMethod2.openMemory(temp, Build.VERSION.SDK_INT);
             LogUtil.debug("cookie:" + Arrays.toString((long[]) cookie));
             ArrayList<Object> arrayList = new ArrayList<>();
             arrayList.add(cookie);

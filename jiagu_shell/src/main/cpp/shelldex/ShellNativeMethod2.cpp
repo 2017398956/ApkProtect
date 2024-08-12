@@ -68,31 +68,62 @@ void *loadDexInAndroid5(int sdk_int, const char *base, size_t size);
 
 std::unique_ptr<const void *> loadDexAboveAndroid6(const char *base, size_t size);
 
-std::unique_ptr<const void *> loadDexAboveAndroid7_1(const char *base, size_t size);
+std::unique_ptr<const void *> loadDexAboveAndroid7_1(jbyte *base, size_t size);
 
-jobject *openMemory(JNIEnv *env, jclass clazz, jbyteArray dex_bytes, jlong dex_size, jint sdk_int) {
-    jbyte *bytes = env->GetByteArrayElements(dex_bytes, JNI_FALSE);
+void *createCookie(jbyte *bytes, jlong dex_size, jint sdk_int) {
     LOG_D(LOG_TAG, "native method get dex file magic number:%c%c%c", bytes[0], bytes[1], bytes[2]);
-    void *value;
     LOG_D(LOG_TAG, "coming into OpenMemoryNative and current sdk_int:%d", sdk_int);
+    void *value;
     if (sdk_int <= 22) {/* android 5.0, 5.1*/
         LOG_D(LOG_TAG, "coming into OpenMemoryNative method in Android 5");
         value = loadDexInAndroid5(sdk_int, (char *) bytes, (size_t) dex_size);
     } else if (sdk_int < 25) {/* android 6.0 7.0 */
         LOG_D(LOG_TAG, "coming into OpenMemoryNative method in Android 6 and above");
-        value = loadDexAboveAndroid7_1((char *) bytes, (size_t) dex_size).get();
+        value = loadDexAboveAndroid7_1(bytes, (size_t) dex_size).get();
     } else {/* android 7.1 */
         LOG_D(LOG_TAG, "coming into OpenMemoryNative method in Android 7.1");
-        value = loadDexAboveAndroid7_1((char *) bytes, (size_t) dex_size).get();
+        value = loadDexAboveAndroid7_1(bytes, (size_t) dex_size).get();
     }
+    return value;
+}
 
+jobject *openMemory(JNIEnv *env, jclass clazz, jbyteArray dex_bytes, jlong dex_size, jint sdk_int) {
+    jbyte *bytes = env->GetByteArrayElements(dex_bytes, JNI_FALSE);
+    void *value = createCookie(bytes, dex_size, sdk_int);
     if (value) {
         LOGD("cookie ptr:%lld, %p", (jlong) value, &value);
-        jlongArray array = env->NewLongArray(1);
-        env->SetLongArrayRegion(array, 0, 1, (jlong *) &value);
+        jlongArray array = env->NewLongArray(2);
+        env->SetLongArrayRegion(array, 1, 1, (jlong *) &value);
         return (jobject *) array;
     }
     return (jobject *) nullptr;
+}
+
+jobject *
+openMemory2(JNIEnv *env, jclass clazz, jobject dexes_bytes, jint sdk_int) {
+    jclass list = env->FindClass("java/util/List");
+    jmethodID list_size = env->GetMethodID(list, "size", "()I");
+    jmethodID list_get = env->GetMethodID(list, "get", "(I)Ljava/lang/Object;");
+    jint dex_number = env->CallIntMethod(dexes_bytes, list_size);
+    jlongArray array = env->NewLongArray(1 + dex_number);
+    for (int i = 0; i < dex_number; ++i) {
+        auto dex_bytes = (jbyteArray) env->CallObjectMethod(dexes_bytes, list_get, i);
+        jsize dex_size = env->GetArrayLength(dex_bytes);
+        jboolean *is_copy = nullptr;
+//        auto *bytes = (jbyte *) malloc(dex_size);
+//        env->GetByteArrayRegion(dex_bytes, 0, dex_size, bytes);
+        jbyte *bytes = env->GetByteArrayElements(dex_bytes, is_copy);
+        LOGD("before create cookie bytes:%p, size:%d, copy:%s", bytes, dex_size, is_copy);
+        void *value = createCookie(bytes, dex_size, sdk_int);
+        if (value) {
+            LOGD("cookie ptr:%lld, %p", (jlong) value, &value);
+            // env->SetLongArrayRegion(array, 0, 1, (jlong *) &value);
+            env->SetLongArrayRegion(array, i + 1, 1, (jlong *) &value);
+        }
+        env->ReleaseByteArrayElements(dex_bytes, bytes, 0);
+    }
+
+    return (jobject *) array;
 }
 
 int dex_count = 0;
@@ -176,17 +207,16 @@ void testGetClassNameList(const char *base, const Header *dex_header) {
 }
 
 /* 加载内存dex，适用于android 6.0 7.0 7.1 */
-std::unique_ptr<const void *> loadDexAboveAndroid7_1(const char *base, size_t size) {
-    std::string dex_name = "Anonymous-DexFile";
+std::unique_ptr<const void *> loadDexAboveAndroid7_1(jbyte *base, size_t size) {
     dex_count++;
+    std::string dex_name = "Anonymous-DexFile";
     dex_name.append(std::to_string(dex_count));
     const char *location = dex_name.c_str();
     std::string err_msg;
-    std::unique_ptr<const void *> value;
-    const auto *dex_header = reinterpret_cast<const Header *>(base);
 
+    const auto *dex_header = reinterpret_cast<const Header *>(base);
     std::ostringstream oss;
-    oss << "check magic number in " << location << " and result should start with dex:"
+    oss << &base << " check magic number in " << location << " and result should start with dex:"
         << dex_header->magic_ << " class_defs_size:" << dex_header->class_defs_size_;
     LOG_D(LOG_TAG, "%s", oss.str().c_str());
     auto func23 = (org_artDexFileOpenMemory23) by_dlsym(artHandle, OpenMemory23);
@@ -206,7 +236,7 @@ std::unique_ptr<const void *> loadDexAboveAndroid7_1(const char *base, size_t si
         LOG_D(LOG_TAG, "MapDummy ptr:%p, and mem_map: %p", mapDummy, mem_map);
     }
 
-    value = func23((const uint8_t *) base,
+    std::unique_ptr<const void *> value = func23((const uint8_t *) base,
                    size,
                    location,
                    dex_header->checksum_,
@@ -245,7 +275,10 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     }
     // 注册 jni 方法
     jclass clz = env->FindClass("com/zhh/jiagu/shell/util/ShellNativeMethod2");
-    JNINativeMethod methods[] = {{"openMemory", "([BJI)Ljava/lang/Object;", (void *) openMemory}};
+    JNINativeMethod methods[] = {
+            {"openMemory", "([BJI)Ljava/lang/Object;",              (void *) openMemory},
+            {"openMemory", "(Ljava/util/List;I)Ljava/lang/Object;", (void *) openMemory2},
+    };
     env->RegisterNatives(clz, methods, sizeof(methods) / sizeof(methods[0]));
     // 打开 libart.so 文件
     artHandle = (void *) by_dlopen("libart.so", RTLD_LAZY);

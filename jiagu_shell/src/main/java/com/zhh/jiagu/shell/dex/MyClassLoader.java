@@ -11,6 +11,7 @@ import com.zhh.jiagu.shell.util.ShellNativeMethod2;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import dalvik.system.DexClassLoader;
 import dalvik.system.DexFile;
@@ -25,7 +26,7 @@ public class MyClassLoader extends DexClassLoader {
                          ClassLoader parent, String dexPath, String optimizedDirectory) {
         super(dexPath, optimizedDirectory, librarySearchPath, parent);
         setContext(context);
-
+        List<byte[]> dexList = new ArrayList<>();
         // 反射调用 openMemory 方法加载多个 dex
         // 待 JNI 实现
         for (ByteBuffer dexBuffer : dexBuffers) {
@@ -33,11 +34,13 @@ public class MyClassLoader extends DexClassLoader {
             LogUtil.debug(TAG, "dex file length:" + dexLen);
             byte[] dex = new byte[dexLen];
             dexBuffer.get(dex);
+            dexList.add(dex);
             // 调用 native 层方法, OpenMemory 返回的是 DexFile 对象，这是不是说明 cookie其实就是 DexFile 的地址？
             // 尤其是对 int 型的 cookie 来说
-            Object cookie = ShellNativeMethod2.openMemory(dex, dexLen, Build.VERSION.SDK_INT);
-            addIntoCookieArray(cookie);
         }
+        Object cookie = ShellNativeMethod2.openMemory(dexList, Build.VERSION.SDK_INT);
+        LogUtil.debug(TAG, "cookie:" + Arrays.toString((long[]) cookie));
+        addIntoCookieArray(cookie);
     }
 
     //重写findClass方法
