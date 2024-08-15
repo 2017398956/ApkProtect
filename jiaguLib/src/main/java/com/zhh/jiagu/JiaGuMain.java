@@ -211,12 +211,7 @@ public class JiaGuMain {
             ZipUtil.unZip(apkFile, apkTemp);
 
             //其次获取解压目录中的dex文件
-            File dexFiles[] = apkTemp.listFiles(new FilenameFilter() {
-                @Override
-                public boolean accept(File file, String s) {
-                    return s.endsWith(".dex");
-                }
-            });
+            File[] dexFiles = apkTemp.listFiles((file, s) -> s.endsWith(".dex"));
 
             if (dexFiles == null) return null;
 
@@ -230,11 +225,21 @@ public class JiaGuMain {
             if (outputFile.exists()) {
                 outputFile.delete();
             }
-            Zip4jUtil.zipFiles(dexFiles, outputFile);
+            boolean mergeDexFiles = false;
+            if (mergeDexFiles) {
+                StringBuilder cmd = new StringBuilder();
+                cmd.append("d8");
+                for (File file : dexFiles) {
+                    cmd.append(" ").append(file.getAbsolutePath());
+                }
+                cmd.append(" --output ").append(outputFile.getAbsolutePath());
+                ProcessUtil.executeCommand(cmd.toString());
+                System.out.println("合并多个 dex 为一个");
+            } else {
+                Zip4jUtil.zipFiles(dexFiles, outputFile);
+            }
             System.out.println("已生成======" + outputFile.getPath());
-
             FileUtils.deleteFile(apkTemp.getPath());
-
             return outputFile;
         } catch (Exception e) {
             e.printStackTrace();

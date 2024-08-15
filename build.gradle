@@ -1,3 +1,6 @@
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 buildscript {
     repositories {
@@ -31,7 +34,7 @@ task clean(type: Delete) {
 
 
 //自动化构建，生成加固所需要的资源
-task jiagu(){
+task jiagu() {
 
     delete project('jiagu_shell').buildDir
     //打包编译壳aar, (:jiagu_shell:bundleReleaseAar) 由于 jiagu_shell 从 library 改为 application 所以可以直接取得 dex 了
@@ -45,8 +48,8 @@ task jiagu(){
         println("jiagu ============= 已编译Aar")
 
         //在根工程中创建jiagu文件夹
-        def root = new File(rootDir,'/jiagu')
-        if (root.exists()){
+        def root = new File(rootDir, '/jiagu')
+        if (root.exists()) {
             delete root
         }
         root = rootProject.mkdir('jiagu')
@@ -60,21 +63,21 @@ task jiagu(){
         // 由于直接编译成 dex 了，所以这里也要改一下
         copy {
             from 'jiagu_shell/build/outputs/apk/release'
-            into{root.absolutePath+"/shellapk"}
+            into { root.absolutePath + "/shellapk" }
             //include('**/*.aar')
         }
 
         //复制依赖的库文件信息
         copy {
             from 'jiaguLib/libs'
-            into{root.absolutePath+"/libs"}
+            into { root.absolutePath + "/libs" }
             //include('**/*.aar')
         }
 
         //复制加固jar和签名配置文件
         copy {
-            from 'jiaguLib/build/libs','jiaguLib/keystore.cfg'
-            into{root.absolutePath}
+            from 'jiaguLib/build/libs', 'jiaguLib/keystore.cfg'
+            into { root.absolutePath }
             //include('**/*.aar')
         }
     }
@@ -84,11 +87,11 @@ task jiagu(){
 task copyApk() {
     // 生成 demo apk
     dependsOn project('demo').tasks.findByPath(':demo:assembleRelease')
-    def root = new File(rootDir,'/jiagu')
+    def root = new File(rootDir, '/jiagu')
     doLast {
         copy {
             from 'demo/build/outputs/apk/release'
-            into{root.absolutePath}
+            into { root.absolutePath }
         }
     }
 }
@@ -96,14 +99,46 @@ task copyApk() {
 task copyApkDebug() {
     // 生成 demo apk
     dependsOn project('demo').tasks.findByPath(':demo:assembleDebug')
-    def root = new File(rootDir,'/jiagu')
+    def root = new File(rootDir, '/jiagu')
     doLast {
         copy {
             from 'demo/build/outputs/apk/debug/demo-debug.apk'
-            into{root.absolutePath}
-            rename {fileName->
+            into { root.absolutePath }
+            rename { fileName ->
                 fileName = "demo-release-unsigned.apk"
             }
         }
+    }
+}
+
+task createTestDexFiles() {
+    dependsOn(copyApkDebug);
+    doLast {
+        File destDir = new File("jiagu_shell/src/main/assets/test")
+        if (!destDir.exists()) {
+            destDir.mkdirs()
+        }
+        ZipInputStream zIn = new ZipInputStream(new FileInputStream(new File("jiagu/demo-release-unsigned.apk")))
+        ZipEntry entry = null;
+        FileOutputStream fos = null;
+        byte[] buf = new byte[1024 * 8];
+        int len = -1;
+        while ((entry = zIn.getNextEntry()) != null) {
+            if (!entry.isDirectory() && entry.name.endsWith(".dex")) {
+                if (entry.name == "classes.dex") {
+                    fos = new FileOutputStream(new File(destDir, "classes1.dex"));
+                } else {
+                    fos = new FileOutputStream(new File(destDir, entry.name));
+                }
+                while ((len = zIn.read(buf)) != -1) {
+                    fos.write(buf, 0, len);
+                }
+                // 关流顺序，先打开的后关闭
+                fos.flush();
+                fos.close();
+            }
+            zIn.closeEntry();
+        }
+        zIn.close();
     }
 }

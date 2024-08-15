@@ -10,3 +10,4 @@
 local.properties
 /jiagu
 /jiaguLib/bin
+/jiagu_shell/src/main/assets/test/*.dex
