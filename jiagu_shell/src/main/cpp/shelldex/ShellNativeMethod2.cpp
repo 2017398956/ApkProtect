@@ -117,7 +117,9 @@ openMemory2(JNIEnv *env, jclass clazz, jobject dexes_bytes, jint sdk_int) {
         void *value = createCookie(bytes, dex_size, sdk_int);
         if (value) {
             LOGD("cookie ptr:%lld, %p", (jlong) value, &value);
-            // env->SetLongArrayRegion(array, 0, 1, (jlong *) &value);
+            if (i == 0) {
+                env->SetLongArrayRegion(array, 0, 1, (jlong *) &value);
+            }
             env->SetLongArrayRegion(array, i + 1, 1, (jlong *) &value);
         }
         env->ReleaseByteArrayElements(dex_bytes, bytes, 0);

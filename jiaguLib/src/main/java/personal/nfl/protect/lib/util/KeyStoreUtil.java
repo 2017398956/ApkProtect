@@ -37,6 +37,8 @@ public class KeyStoreUtil {
                     store.alias = line.split("=")[1].trim();
                 }else if (line.trim().startsWith("keyPassword")){
                     store.keyPassword = line.split("=")[1].trim();
+                }else if (line.trim().startsWith("mergeDexFiles")){
+                    store.mergeDexFiles = line.split("=")[1].trim().equals("true");
                 }
             }
             return store;

@@ -8,6 +8,7 @@ public class KeyStore {
     public String storePassword;
     public String alias;
     public String keyPassword;
+    public boolean mergeDexFiles;
     public boolean v1SigningEnabled = true;
     public boolean v2SigningEnabled = true;
 }
