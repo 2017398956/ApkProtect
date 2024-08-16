@@ -6,7 +6,7 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.zhh.jiagu.demo"
+        applicationId "personal.nfl.protect.demo"
         minSdkVersion 21
         targetSdkVersion 33
         versionCode 1

@@ -177,9 +177,9 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_zhh_jiagu_shell_util_ShellNativeMethod_loadDexFile(JNIEnv *env, jclass jc,
-                                                            jbyteArray dexBytes,
-                                                            jlong dexSize) {
+Java_personal_nfl_protect_shell_util_ShellNativeMethod_loadDexFile(JNIEnv *env, jclass jc,
+                                                                   jbyteArray dexBytes,
+                                                                   jlong dexSize) {
     if (useOpenMemory) {
         jbyte *bytes = env->GetByteArrayElements(dexBytes, JNI_FALSE);
         int inDexLen = env->GetArrayLength(dexBytes);

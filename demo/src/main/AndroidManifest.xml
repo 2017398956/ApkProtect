@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.zhh.jiagu.demo">
+    package="personal.nfl.protect.demo">
 
     <application
+        android:name=".DemoApplication"
         android:allowBackup="true"
+        android:extractNativeLibs="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:name="com.zhh.jiagu.demo.DemoApplication"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:extractNativeLibs="true"
         android:theme="@style/Theme.Apk_jiagu">
         <activity
             android:name=".MainActivity"
@@ -20,7 +20,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".SecondActivity"/>
+        <activity android:name=".SecondActivity" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.sxt.teacher.fileProvider"

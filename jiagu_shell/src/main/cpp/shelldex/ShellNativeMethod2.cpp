@@ -274,7 +274,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
         ret = JNI_VERSION_1_6;
     }
     // 注册 jni 方法
-    jclass clz = env->FindClass("com/zhh/jiagu/shell/util/ShellNativeMethod2");
+    jclass clz = env->FindClass("personal/nfl/protect/shell/util/ShellNativeMethod2");
     JNINativeMethod methods[] = {
             {"openMemory", "([BJI)Ljava/lang/Object;",              (void *) openMemory},
             {"openMemory", "(Ljava/util/List;I)Ljava/lang/Object;", (void *) openMemory2},

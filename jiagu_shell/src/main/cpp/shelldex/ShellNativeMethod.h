@@ -8,14 +8,16 @@
 #define APKPROTECT_SHELLNATIVEMETHOD_H
 #endif
 
-#ifndef _Included_com_zhh_jiagu_shell_util_ShellNativeMethod
-#define _Included_com_zhh_jiagu_shell_util_ShellNativeMethod
+#ifndef Included_personal_nfl_protect_shell_util_ShellNativeMethod
+#define Included_personal_nfl_protect_shell_util_ShellNativeMethod
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-JNIEXPORT jint JNICALL Java_com_zhh_jiagu_shell_util_ShellNativeMethod_loadDexFile
-        (JNIEnv *, jclass, jbyteArray, jlong);
+JNIEXPORT jint JNICALL
+Java_personal_nfl_protect_shell_util_ShellNativeMethod_loadDexFile(JNIEnv *env, jclass clazz,
+                                                                   jbyteArray dex_bytes,
+                                                                   jlong dex_length);
 
 #ifdef __cplusplus
 }

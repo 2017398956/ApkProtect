@@ -53,11 +53,4 @@
 -keepclasseswithmembers class * {
     public <init>(android.content.Context, android.util.AttributeSet, int);
 }
-#
-#-keep class com.zhh.jiagu.shell.util.Utils{
-#    public <methods>;
-#}
-#
-#-keep class com.zhh.jiagu.shell.dex.LoadDexUtil{
-#    public <methods>;
-#}
+

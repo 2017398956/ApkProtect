@@ -5,7 +5,7 @@ plugins {
 //配置META-INFO/MANIFEST.MF文件
 jar{
     def map = [
-            'Main-Class':"com.zhh.jiagu.JiaGuMain",//执行java -jar .\jiaguLib.jar命令时，指定运行的main所在类
+            'Main-Class':"personal.nfl.protect.lib.JiaGuMain",//执行java -jar .\jiaguLib.jar命令时，指定运行的main所在类
             'Class-Path':"libs/zip4j-2.9.1.jar libs/AXMLEditor.jar"     //指定依赖的包，依赖多个jar包时，以空格区分
     ]
     manifest.attributes(map)
