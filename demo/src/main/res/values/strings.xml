@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">demo</string>
+    <string name="jump_to_next">跳转界面</string>
+    <string name="click_button">按钮</string>
 </resources>
