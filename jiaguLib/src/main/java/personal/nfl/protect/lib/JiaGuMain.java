@@ -14,6 +14,7 @@ import org.w3c.dom.NodeList;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -70,6 +71,7 @@ public class JiaGuMain {
      * @param args
      */
     public static void main(String[] args) {
+        long startTime = System.currentTimeMillis();
         if (!isRelease) {
             ROOT = "jiaguLib/";
             OUT_TMP = ROOT + "temp/";
@@ -95,6 +97,7 @@ public class JiaGuMain {
                 System.out.println(arg + " is invalid apk path.");
             }
         }
+        System.out.printf("总共耗时：" + (System.currentTimeMillis() - startTime) + "ms");
     }
 
     /**
@@ -130,8 +133,8 @@ public class JiaGuMain {
             //步骤三：对步骤二的zip包进行加密，并与壳dex合成新dex文件
             File dexFile = combine2NewDexFile(shellDexFile, dexZipFile);
             //步骤四：修改AndroidManifest（Application的android:name属性和新增<meta-data>）
-            String outpath = modifyOriginApkManifest();
-//            String outpath = modifyOriginApkManifest2();
+//            String outpath = modifyOriginApkManifest();
+            String outpath = modifyOriginApkManifest2();
 
             //步骤五：将步骤三生成的新dex文件替换apk中的所有dex文件
             if (dexFile != null && !outpath.isEmpty()) {
@@ -310,7 +313,7 @@ public class JiaGuMain {
     private String modifyOriginApkManifest() throws Exception {
         String apkPath = ORIGIN_APK;
         String outputPath = OUT_TMP + "apk/";
-        logTitle("步骤四：修改AndroidManifest（Application的android:name属性和新增<meta-data>）");
+        logTitle("步骤四：反编译后修改AndroidManifest（Application的android:name属性和新增<meta-data>）");
         String path = "";
         long start = System.currentTimeMillis();
         //1：执行命令进行反编译原apk
@@ -348,7 +351,7 @@ public class JiaGuMain {
      */
     private String modifyOriginApkManifest2() throws Exception {
         String apkPath = ORIGIN_APK;
-        logTitle("步骤四：修改AndroidManifest（Application的android:name属性和新增<meta-data>）");
+        logTitle("步骤四：直接修改AndroidManifest（Application的android:name属性和新增<meta-data>）");
         String outApk = "";
 
         long start = System.currentTimeMillis();
@@ -360,6 +363,7 @@ public class JiaGuMain {
         //2.读取输出的文件内容，获取到Application name
         String clazzName = FileUtils.getAppApplicationName(outAmFile);
         System.out.println("application-name ->" + clazzName);
+
         FileUtils.deleteFile(outAmFile.getPath());
 
         //3.将AndroidManifest.xml从apk中提取出来
@@ -377,7 +381,7 @@ public class JiaGuMain {
             ProcessUtil.executeCommand(cmd);
             //先将<meta-data>属性写入到一个xml文件中，然后添加<meta-data>属性
             String metaXml = OUT_TMP + "meta.xml";
-            clazzName = clazzName == null || clazzName.length() <= 0 ? "android.app.Application" : clazzName;
+            clazzName = clazzName == null || clazzName.isEmpty() ? "android.app.Application" : clazzName;
             FileUtils.writeFile("<meta-data android:name=\"APPLICATION_CLASS_NAME\" android:value=\"" + clazzName + "\"/>", metaXml);
             //插入标签：java -jar AXMLEditor.jar -tag -i [需要插入标签内容的xml文件] [输入xml] [输出xml]
             cmd = String.format(Locale.CHINESE, "java -jar %slibs/AXMLEditor.jar -tag -i %s %s %s", ROOT, metaXml, manifestFile.getPath(), manifestFile.getPath());
@@ -392,8 +396,9 @@ public class JiaGuMain {
             FileUtils.deleteFile(manifestFile.getPath());
             System.out.println("=== modifyOriginApkManifest2 ==== " + (System.currentTimeMillis() - start) + "ms");
 
+        } else {
+            throw new FileNotFoundException("cannot find file: AndroidManifest.xml in " + OUT_TMP);
         }
-
         return outApk;
     }
 
