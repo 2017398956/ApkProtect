@@ -1,0 +1,559 @@
+/**
+ * add buildscript at head of module's build.gradle
+ */
+buildscript {
+    repositories {
+        mavenCentral()
+        maven { url 'https://maven.aliyun.com/nexus/content/groups/public/' }
+    }
+    dependencies {
+        classpath "org.javassist:javassist:3.30.2-GA"
+    }
+}
+
+
+import javassist.ClassPool
+import javassist.CtClass
+import javassist.CtField
+import javassist.bytecode.ClassFile
+
+import java.util.zip.*
+
+project.afterEvaluate {
+    List<Task> processResTasks = new ArrayList<>()
+    project.tasks.forEach { tempTask ->
+        android.applicationVariants.forEach { variant ->
+            if (tempTask.name == "process${variant.name.capitalize()}Resources") {
+                logger.error("task:${tempTask.name}")
+                processResTasks.add(tempTask)
+                return
+            }
+        }
+    }
+    logger.error("processResTasks.size:${processResTasks.size}")
+    processResTasks.forEach { task ->
+        task.doLast {
+            int newPkgId = 0x6D
+            String newPkgIdStr = "0x" + Integer.toHexString(newPkgId)
+            task.outputs.files.forEach {
+                logger.error("output file path:${it.absolutePath}")
+                if (it.name.endsWith("R.jar")) {
+                    logger.error("      time:${it.lastModified()}")
+                    dealJarFile(it, newPkgId)
+                } else if (it.name.endsWith("stableIds.txt")) {
+                    logger.error("      time:${it.lastModified()}")
+                    replaceResIdInRText(it, newPkgIdStr)
+                } else if (it.name.endsWith("R.txt")) {
+                    logger.error("      time:${it.lastModified()}")
+                    replaceResIdInRText(it, newPkgIdStr)
+                } else if (it.name.endsWith("out")) {
+                    it.listFiles().each { ap_ ->
+                        if (ap_.name.endsWith(".ap_")) {
+                            logger.error("      time:${ap_.lastModified()}")
+                            dealApFile(ap_, newPkgId, android.defaultConfig.applicationId)
+                        }
+                    }
+                } else {
+                    logger.error("      time:${it.lastModified()}")
+                }
+            }
+            logger.error(("exec task:${task.name}"))
+//            throw Exception("===============================================")
+        }
+    }
+}
+
+void replaceResIdInRText(File textSymbolOutputFile, String newPkgIdStr) {
+    String charset = "UTF-8"
+    List<String> lines = textSymbolOutputFile.readLines(charset).each {
+        it.replace("0x7f", newPkgIdStr)
+    }
+
+    textSymbolOutputFile.delete()
+    textSymbolOutputFile.createNewFile()
+    lines.each {
+        textSymbolOutputFile.append(it, charset)
+        textSymbolOutputFile.append("\n", charset)
+    }
+}
+
+void dealJarFile(File jarFile, int newPkgId) {
+    String outDirPath = jarFile.parentFile.absolutePath + File.separator + "R"
+    unZip(jarFile, outDirPath)
+    jarFile.delete()
+    String newClassPath = replaceResIdInJar(file(outDirPath), newPkgId << 24, outDirPath)
+    file(outDirPath).deleteDir()
+    zipFolder(newClassPath, jarFile.absolutePath, new ZipStrategy(outDirPath) {
+
+        @Override
+        boolean compressed() {
+            return false
+        }
+    }, true)
+    file(newClassPath).deleteDir()
+}
+
+boolean executeCommand(String cmd) {
+    println("开始执行命令===>$cmd")
+    Process process = Runtime.getRuntime().exec("cmd /c $cmd")
+    consumeInputStream(process.inputStream)
+    consumeInputStream(process.errorStream)
+    process.waitFor()
+    if (process.exitValue() != 0) {
+        throw new RuntimeException("执行命令错误===>$cmd")
+    }
+    return true
+}
+
+void consumeInputStream(InputStream inputStream) {
+    BufferedReader br = new BufferedReader(new InputStreamReader(inputStream))
+    String s
+    //        StringBuilder sb = new StringBuilder();
+    while ((s = br.readLine()) != null) {
+        println(s)
+        //            sb.append(s);
+    }
+}
+
+String replaceResIdInJar(File classFile, int newPkgId, String rootDirPath) {
+    String newClassPath = file(rootDirPath).parentFile.absolutePath + File.separator + "RTemp"
+//    logger.error("classFileName:${classFile.absolutePath.substring(rootDirPath.length + 1)}")
+    if (classFile.isFile()) {
+        if (!classFile.name.endsWith(".class")
+//            || classFile.absolutePath.substring(rootDirPath.length + 1).startsWith("androidx")
+        ) {
+            return newClassPath
+        }
+        FileInputStream fileInputStream = new FileInputStream(classFile)
+        DataInputStream dataInputStream = new DataInputStream(fileInputStream)
+        ClassFile clazzFile = new ClassFile(dataInputStream)
+        fileInputStream.close()
+        dataInputStream.close()
+        CtClass ctClass = ClassPool.getDefault().makeClass(clazzFile)
+        ctClass.defrost()
+        CtField[] oldFields = ctClass.fields
+        oldFields.each {
+            if (it.type.name == "int") {
+                int value = (int) it.constantValue
+                if ((value & 0x7F000000) == 0x7F000000) {
+                    ctClass.removeField(it)
+                    CtField field = new CtField(it, ctClass)
+                    ctClass.addField(
+                            field,
+                            CtField.Initializer.constant(value & 0x00FFFFFF | newPkgId)
+                    )
+                }
+            }
+        }
+        ctClass.writeFile(newClassPath)
+        ctClass.defrost()
+    } else {
+        classFile.listFiles().each {
+            replaceResIdInJar(it, newPkgId, rootDirPath)
+        }
+    }
+    return newClassPath
+}
+
+void dealApFile(File packageOutputFile, int newPkgId, String pkgName) {
+    logger.warn("dealApFile new package name:${pkgName}")
+    int prefixIndex = packageOutputFile.path.lastIndexOf(".")
+    String unzipPath = packageOutputFile.path.substring(0, prefixIndex) + File.separator
+    unZip(packageOutputFile, unzipPath)
+    replaceResIdInResDir(unzipPath, newPkgId)
+    replaceResIdInArsc(new File(unzipPath, "resources.arsc"), newPkgId, pkgName)
+    zipFolder(unzipPath, packageOutputFile.path, new ZipStrategy(unzipPath) {
+        @Override
+        boolean compressed() {
+            return filePath.endsWith(".xml")
+        }
+    }, true)
+    file(unzipPath).deleteDir() //如果需要可以在处理后删除解压后的文件
+}
+
+void replaceResIdInResDir(String resPath, int newPkgId) {
+    File resFile = new File(resPath)
+    if (resFile.isFile()) {
+        if (resPath.endsWith(".xml")) {
+            replaceResIdInXml(resFile, newPkgId)
+        }
+    } else {
+        String[] fileList = resFile.list()
+        if (fileList == null || fileList.size() == 0) {
+            return
+        }
+        for (int i = 0; i < fileList.size(); i++) {
+            replaceResIdInResDir(resPath + File.separator + fileList[i], newPkgId)
+        }
+    }
+}
+
+private void replaceResIdInXml(File resFile, int newPkgId) {
+    byte[] buf = resFile.readBytes()
+    for (int i = 0; i < buf.size() - 7; i += 4) {
+        if ((int) buf[i] == 0x08 && (int) buf[i + 1] == 0x00 && (int) buf[i + 2] == 0x00
+                && ((int) buf[i + 3] == 0x01 || (int) buf[i + 3] == 0x02)
+        ) {
+            if ((int) buf[i + 7] == 0x7f) {
+                buf[i + 7] = newPkgId.byteValue()
+            }
+        }
+    }
+    FileOutputStream outStream = new FileOutputStream(resFile)
+    outStream.write(buf, 0, buf.size())
+    outStream.flush()
+    outStream.close()
+}
+
+int convert4ByteToInt(byte[] buf, int startIndex) {
+    return (((int) buf[startIndex + 3] & 0xff) << 24) |
+            (((int) buf[startIndex + 2] & 0xff) << 16) |
+            (((int) buf[startIndex + 1] & 0xff) << 8) |
+            ((int) buf[startIndex] & 0xff);
+}
+
+int convert2ByteToInt(byte[] buf, int startIndex) {
+    return (((int) buf[startIndex + 1] & 0xff) << 8) |
+            ((int) buf[startIndex] & 0xff);
+}
+
+void replaceResIdInArsc(File resFile, int newPkgId, String pkgName) {
+    byte[] buf = resFile.bytes
+    byte[] dynamicRefBytes = getDynamicRef(pkgName, newPkgId)
+    //
+    int size = buf.size() + dynamicRefBytes.size()
+    logger.warn("old arsc file size:${buf.size()} new arsc file size:$size")
+    buf[4] = (size & 0x000000ff).byteValue()
+    buf[5] = ((size & 0x0000ff00) >> 8).byteValue()
+    buf[6] = ((size & 0x00ff0000) >> 16).byteValue()
+    buf[7] = ((size & 0xff000000) >> 24).byteValue()
+    logger.warn("rewrite arsc file size:${convert4ByteToInt(buf, 4)}")
+    //
+    int DEFAULT_PKG_ID = 0x7F
+    //
+    if ((int) buf[0] == 0x02 && (int) buf[1] == 0) {
+        int tabHeaderSize = convert2ByteToInt(buf, 2)
+        int packageCount = convert4ByteToInt(buf, 8)
+        logger.warn("tabHeaderSize:${tabHeaderSize}")
+        if ((int) buf[tabHeaderSize] == 0x01 && (int) buf[tabHeaderSize + 1] == 0) {
+            int globalStringsPoolSize = convert4ByteToInt(buf, tabHeaderSize + 4)
+            logger.warn("globalStringsPoolSize:$globalStringsPoolSize")
+            var packageStart = tabHeaderSize + globalStringsPoolSize
+            logger.warn("packageStart:$packageStart")
+            for (int packageIndex = 0; packageIndex < packageCount; packageIndex++) {
+                int packageSize = convert4ByteToInt(buf, packageStart + 4)
+                int maxSize = tabHeaderSize + globalStringsPoolSize + packageSize
+                logger.warn("max size:${maxSize}")
+                if ((int) buf[packageStart] == 0x00 && (int) buf[packageStart + 1] == 0x02) {
+                    if ((int) buf[packageStart + 8] == DEFAULT_PKG_ID) {
+                        buf[packageStart + 8] = newPkgId.byteValue()
+                        int newPackageSize = packageSize + dynamicRefBytes.size()
+                        buf[packageStart + 4] = (newPackageSize & 0x000000ff).byteValue()
+                        buf[packageStart + 5] = ((newPackageSize & 0x0000ff00) >> 8).byteValue()
+                        buf[packageStart + 6] = ((newPackageSize & 0x00ff0000) >> 16).byteValue()
+                        buf[packageStart + 7] = ((newPackageSize & 0xff000000) >> 24).byteValue()
+                    } else {
+                        logger.error("can not find default package id.")
+                        return
+                    }
+                    int resTypeStringPoolStart =
+                            packageStart + convert2ByteToInt(buf, packageStart + 2)
+                    int resTypeStringPoolSize = convert4ByteToInt(buf, resTypeStringPoolStart + 4)
+                    int resNameStringPoolStart = resTypeStringPoolStart + resTypeStringPoolSize
+                    int resNameStringPoolSize = convert4ByteToInt(buf, resNameStringPoolStart + 4)
+                    int typeSpecStart = resNameStringPoolStart + resNameStringPoolSize
+                    while (true) {
+                        logger.warn("read type spec at $typeSpecStart")
+                        if (typeSpecStart < maxSize && (int) buf[typeSpecStart] == 0x02 && (int) buf[typeSpecStart] == 0x02) {
+                            int typeSpecSize = convert4ByteToInt(buf, typeSpecStart + 4)
+                            int typeStart = typeSpecStart + typeSpecSize;
+                            while (true) {
+                                if (typeStart < maxSize && (int) buf[typeStart] == 0x01 && (int) buf[typeStart + 1] == 0x02) {
+                                    int typeHeaderSize = convert2ByteToInt(buf, typeStart + 2)
+                                    int typeSize = convert4ByteToInt(buf, typeStart + 4)
+                                    int entryCount = convert4ByteToInt(buf, typeStart + 12)
+                                    int entriesStart = convert4ByteToInt(buf, typeStart + 16)
+                                    int entriesOffsetsStart = typeStart + typeHeaderSize
+                                    for (int entryIndex = 0; entryIndex < entryCount; entryIndex++) {
+                                        int entryOffset =
+                                                convert4ByteToInt(
+                                                        buf,
+                                                        entriesOffsetsStart + entryIndex * 4
+                                                )
+                                        if (entryOffset < 0) {
+                                            continue
+                                        }
+                                        int entryStart = typeStart + entriesStart + entryOffset
+                                        int valueStart
+                                        if ((int) buf[entryStart + 2] == 0x01 && (int) buf[entryStart + 3] == 0) {
+                                            // bag
+                                            if ((int) buf[entryStart + 11] == DEFAULT_PKG_ID) {
+                                                buf[entryStart + 11] = newPkgId.byteValue()
+                                            }
+                                            int mapCount = convert4ByteToInt(buf, entryStart + 12)
+                                            int mapStart
+                                            for (int mapIndex = 0; mapIndex < mapCount; mapIndex++) {
+                                                mapStart = entryStart + 16 + mapIndex * 12
+                                                if ((int) buf[mapStart + 3] == DEFAULT_PKG_ID) {
+                                                    buf[mapStart + 3] = newPkgId.byteValue()
+                                                }
+                                                valueStart = mapStart + 4
+                                                if (((int) buf[valueStart + 3] == 0x01 || (int) buf[valueStart + 3] == 0x02) &&
+                                                        (int) buf[valueStart + 7] == DEFAULT_PKG_ID
+                                                ) {
+                                                    buf[valueStart + 7] = newPkgId.byteValue()
+                                                }
+                                            }
+                                        } else {
+                                            valueStart = entryStart + 8
+                                            if (((int) buf[valueStart + 3] == 0x01 || (int) buf[valueStart + 3] == 0x02) &&
+                                                    (int) buf[valueStart + 7] == DEFAULT_PKG_ID
+                                            ) {
+                                                buf[valueStart + 7] = newPkgId.byteValue()
+                                            }
+                                        }
+                                    }
+                                    //
+                                    typeStart += typeSize
+                                    typeSpecStart = typeStart
+                                } else {
+                                    // logger.error("current TYPE_SPEC's TYPE read completed.")
+                                    break
+                                }
+                            }
+                        } else {
+                            logger.warn("TYPE_SPEC read completed.")
+                            break
+                        }
+                    }
+                    // TODO: 多 package 时暂时无效
+                    packageStart += convert4ByteToInt(buf, packageStart + 4)
+                } else {
+                    logger.error("can not find package.")
+                }
+            }
+        } else {
+            logger.error("can not find global strings pool.")
+        }
+    }
+    //
+    FileOutputStream outStream = new FileOutputStream(resFile)
+    outStream.write(buf, 0, buf.size())
+    outStream.write(dynamicRefBytes)
+    outStream.flush()
+    outStream.close()
+}
+
+byte[] getDynamicRef(String pkgName, int newPkgId) {
+    int typeLength = 2
+    int headSizeLength = 2
+    int totalSizeLength = 4
+    int countLength = 4
+    //
+    int pkgIdLength = 4
+    int pkgNameLength = 256
+    byte[] pkgNameByte = pkgName.bytes
+    byte[] pkgBuf = new byte[typeLength + headSizeLength + totalSizeLength + countLength + pkgIdLength + pkgNameLength]
+    //
+    pkgBuf[0] = 0x03
+    pkgBuf[1] = 0x02
+    //
+    pkgBuf[typeLength] = 0x0c
+    pkgBuf[typeLength + 1] = 0x00
+    //
+    pkgBuf[typeLength + headSizeLength] = (pkgBuf.length & 0x000000ff).byteValue()
+    pkgBuf[typeLength + headSizeLength + 1] = ((pkgBuf.length & 0x0000ff00) >> 8).byteValue()
+    pkgBuf[typeLength + headSizeLength + 2] = ((pkgBuf.length & 0x00ff0000) >> 16).byteValue()
+    pkgBuf[typeLength + headSizeLength + 3] = ((pkgBuf.length & 0xff000000) >> 24).byteValue()
+    //
+    pkgBuf[typeLength + headSizeLength + totalSizeLength] = 0x01
+    pkgBuf[typeLength + headSizeLength + totalSizeLength + 1] = 0x00
+    pkgBuf[typeLength + headSizeLength + totalSizeLength + 2] = 0x00
+    pkgBuf[typeLength + headSizeLength + totalSizeLength + 3] = 0x00
+    //
+    pkgBuf[typeLength + headSizeLength + totalSizeLength + countLength] = newPkgId.byteValue()
+    pkgBuf[typeLength + headSizeLength + totalSizeLength + countLength + 1] = 0x00
+    pkgBuf[typeLength + headSizeLength + totalSizeLength + countLength + 2] = 0x00
+    pkgBuf[typeLength + headSizeLength + totalSizeLength + countLength + 3] = 0x00
+    //
+    for (int i = 0; i < pkgNameByte.size(); i++) {
+        pkgBuf[typeLength + headSizeLength + totalSizeLength + countLength + pkgIdLength + i * 2] = pkgNameByte[i]
+        pkgBuf[typeLength + headSizeLength + totalSizeLength + countLength + pkgIdLength + i * 2 + 1] = 0x00
+    }
+    return pkgBuf
+}
+
+void unZip(File src, String savePath) {
+    int count = -1;
+    File newFile
+    InputStream inputstream
+    FileOutputStream fos
+    BufferedOutputStream bos
+    byte[] buf = new byte[1024 * 8]
+    ZipFile zipFile = new ZipFile(src)
+    Enumeration entries = zipFile.entries();
+    while (entries.hasMoreElements()) {
+        ZipEntry entry = entries.nextElement();
+        String filename = savePath + File.separator + entry.getName();
+        if (!filename.endsWith("/")) {
+            newFile = file(filename)
+            if (!newFile.parentFile.exists()) {
+                newFile.parentFile.mkdirs()
+            }
+            newFile.createNewFile()
+            inputstream = zipFile.getInputStream(entry)
+            fos = new FileOutputStream(newFile)
+            bos = new BufferedOutputStream(fos, 2048)
+            while ((count = inputstream.read(buf)) > -1) {
+                bos.write(buf, 0, count)
+            }
+            bos.flush()
+            fos.close()
+            inputstream.close()
+        }
+    }
+    zipFile.close()
+}
+
+void zipFolder(
+        String srcPath,
+        String savePath,
+        ZipStrategy zipStrategy,
+        boolean keepDirStructure
+) {
+    File saveFile = new File(savePath)
+    saveFile.delete()
+    saveFile.createNewFile()
+    ZipOutputStream outStream = new ZipOutputStream(new FileOutputStream(saveFile))
+    File srcFile = new File(srcPath)
+    if (keepDirStructure) {
+        zipFile(srcFile, "", outStream, zipStrategy, true)
+    } else {
+        zipFile(srcFile.absolutePath + File.separator, "", outStream)
+    }
+    outStream.finish()
+    outStream.close()
+}
+
+void zipFile(String folderPath, String fileString, ZipOutputStream out) {
+    File srcFile = new File(folderPath, fileString)
+    if (srcFile.isFile) {
+        ZipEntry zipEntry = ZipEntry(fileString)
+        zipEntry.method = fileString.endsWith(".xml") ? ZipEntry.DEFLATED : ZipEntry.STORED
+        FileInputStream inputStream = FileInputStream(srcFile)
+        out.putNextEntry(zipEntry)
+        int len = -1
+        byte[] buf = new byte[1024 * 8]
+        while ((len = inputStream.read(buf)) != -1) {
+            out.write(buf, 0, len)
+        }
+        out.closeEntry()
+    } else {
+        File[] fileList = srcFile.list()
+        if (fileList == null || fileList.size() == 0) {
+            ZipEntry zipEntry = new ZipEntry(fileString + File.separator)
+            out.putNextEntry(zipEntry)
+            out.closeEntry()
+        } else {
+            fileList.each {
+                zipFile(
+                        folderPath,
+                        fileString == "" ? it : fileString + File.separator + it,
+                        out
+                )
+            }
+        }
+
+    }
+}
+
+long getCRC32Checksum(byte[] bytes) {
+    Checksum crc32 = new CRC32()
+    crc32.update(bytes, 0, bytes.size())
+    return crc32.getValue()
+}
+
+/**
+ * 递归压缩方法
+ * @param sourceFile 源文件
+ * @param out zip输出流
+ * @param name 压缩后的名称
+ * @param keepDirStructure 是否保留原来的目录结构,true:保留目录结构;
+ * false:所有文件跑到压缩包根目录下(注意：不保留目录结构可能会出现同名文件,会压缩失败)
+ * @throws Exception
+ */
+void zipFile(
+        File sourceFile,
+        String name,
+        ZipOutputStream out,
+        ZipStrategy zipStrategy,
+        boolean keepDirStructure
+) {
+    zipStrategy.filePath = sourceFile.absolutePath
+    if (sourceFile.isFile()) {
+        // logger.error("zip file:${name}, path:${sourceFile.absolutePath}")
+        // 向zip输出流中添加一个zip实体，构造器中name为zip实体的文件的名字
+        ZipEntry zipEntry = new ZipEntry(name)
+        byte[] sourceBytes = null
+        if (zipStrategy.compressed()) {
+            zipEntry.method = ZipEntry.DEFLATED
+        } else {
+            zipEntry.size = sourceFile.length()
+            sourceBytes = sourceFile.readBytes()
+            zipEntry.crc = getCRC32Checksum(sourceBytes)
+            zipEntry.method = ZipEntry.STORED
+        }
+        out.putNextEntry(zipEntry)
+        if (sourceBytes == null) {
+            // copy文件到zip输出流中
+            byte[] buf = new byte[8 * 1024]
+            int len
+            FileInputStream inputStream = new FileInputStream(sourceFile)
+            while ((len = inputStream.read(buf)) != -1) {
+                out.write(buf, 0, len)
+            }
+            inputStream.close()
+        } else {
+            out.write(sourceBytes)
+        }
+        // Complete the entry
+        out.closeEntry()
+
+    } else {
+        File[] listFiles = sourceFile.listFiles()
+        if (listFiles == null || listFiles.size() == 0) {
+            // 需要保留原来的文件结构时,需要对空文件夹进行处理
+            if (keepDirStructure) {
+                // 空文件夹的处理
+                out.putNextEntry(ZipEntry("$name/"))
+                // 没有文件，不需要文件的 copy
+                out.closeEntry()
+            }
+        } else {
+            for (file in listFiles) {
+                // 判断是否需要保留原来的文件结构
+                if (keepDirStructure) {
+                    // 注意：file.getName()前面需要带上父文件夹的名字加一斜杠,
+                    // 不然最后压缩包中就不能保留原来的文件结构,即：所有文件都跑到压缩包根目录下了
+                    zipFile(
+                            file, name.isEmpty() ? file.name : "$name/${file.name}"
+
+                            , out, zipStrategy, keepDirStructure
+                    )
+                } else {
+                    zipFile(file, file.name, out, zipStrategy, keepDirStructure)
+                }
+            }
+        }
+    }
+}
+
+abstract class ZipStrategy {
+    def String filePath
+
+    ZipStrategy(String filePath) {
+        this.filePath = filePath
+    }
+
+    abstract boolean compressed()
+}

@@ -1,5 +1,19 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven { url 'https://maven.aliyun.com/nexus/content/groups/public/' }
+    }
+    dependencies {
+        classpath "org.javassist:javassist:3.30.2-GA"
+    }
+}
+
 plugins {
     id 'com.android.application'
+}
+
+apply {
+    from("replace_res_id.gradle")
 }
 
 android {
