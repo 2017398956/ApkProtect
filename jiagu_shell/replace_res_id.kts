@@ -1,3 +1,37 @@
+/**
+ * If you run this script not on windows, please download jad from https://varaneckas.com/jad/
+ * add buildscript at head of module's build.gradle
+ */
+import javassist.ClassPool
+import javassist.CtField
+import javassist.bytecode.ClassFile
+import org.gradle.configurationcache.extensions.capitalized
+import org.gradle.kotlin.dsl.accessors.runtime.functionToAction
+import java.io.BufferedOutputStream
+import java.io.BufferedReader
+import java.io.DataInputStream
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.FileReader
+import java.io.FileWriter
+import java.io.InputStream
+import java.io.InputStreamReader
+import java.util.zip.CRC32
+import java.util.zip.Checksum
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+import kotlin.experimental.and
+
+buildscript {
+    dependencies {
+        classpath("org.javassist:javassist:3.30.2-GA")
+    }
+}
+
+// FIXME:change to your jad
+val jadPath = "${project.projectDir.absolutePath}${File.separator}jad.exe"
+
 project.afterEvaluate {
     val processResTasks = project.tasks.filter { tempTask ->
         var filter = false
@@ -23,7 +57,7 @@ project.afterEvaluate {
                 logger.error("output file path:${it.absolutePath}")
                 if (it.name.endsWith("R.jar")) {
                     logger.error("      time:${it.lastModified()}")
-                    dealJarFile(it, newPkgId)
+                    dealJarFile(it, newPkgIdStr)
                 } else if (it.name.endsWith("stableIds.txt")) {
                     logger.error("      time:${it.lastModified()}")
                     replaceResIdInRText(it, newPkgIdStr)
@@ -60,11 +94,25 @@ fun replaceResIdInRText(textSymbolOutputFile: File, newPkgIdStr: String) {
     }
 }
 
-fun dealJarFile(jarFile: File, newPkgId: Int) {
+fun dealJarFile(jarFile: File, newPkgIdStr: String) {
     val outDirPath = jarFile.parentFile.absolutePath + File.separator + "R"
     unZip(jarFile, outDirPath)
     jarFile.delete()
-    val newClassPath = replaceResIdInJar(File(outDirPath), newPkgId shl 24, outDirPath)
+    val newClassPath = replaceResIdInJar(file(outDirPath), newPkgIdStr, outDirPath)
+    zipFolder(newClassPath, jarFile.absolutePath, object : ZipStrategy(outDirPath) {
+        override fun compressed(): Boolean {
+            return false
+        }
+    }, true)
+    file(outDirPath).deleteRecursively()
+    file(newClassPath).deleteRecursively()
+}
+
+fun dealJarFile2(jarFile: File, newPkgId: Int) {
+    val outDirPath = jarFile.parentFile.absolutePath + File.separator + "R"
+    unZip(jarFile, outDirPath)
+    jarFile.delete()
+    val newClassPath = replaceResIdInJar2(File(outDirPath), newPkgId shl 24, outDirPath)
     file(outDirPath).deleteRecursively()
     zipFolder(newClassPath, jarFile.absolutePath, object : ZipStrategy(outDirPath) {
         override fun compressed(): Boolean {
@@ -72,14 +120,16 @@ fun dealJarFile(jarFile: File, newPkgId: Int) {
         }
     }, true)
     File(newClassPath).deleteRecursively()
-    val jarTemp = jarFile.parentFile.absolutePath + File.separator + "RTemp.jar"
-    executeCommand("D:\\Android\\Sdk\\build-tools\\35.0.0\\zipalign.exe -v -p 4 " + jarFile.getPath() + " " + jarTemp)
-    jarFile.delete()
-    file(jarTemp).renameTo(jarFile)
 }
 
 fun executeCommand(cmd: String): Boolean {
-    println("开始执行命令===>$cmd")
+    return executeCommand(cmd, false)
+}
+
+fun executeCommand(cmd: String, printLog:Boolean): Boolean {
+    if (printLog) {
+        println("开始执行命令===>$cmd")
+    }
     val process: Process = Runtime.getRuntime().exec("cmd /c $cmd")
     consumeInputStream(process.inputStream)
     consumeInputStream(process.errorStream)
@@ -100,7 +150,37 @@ fun consumeInputStream(`is`: InputStream?) {
     }
 }
 
-fun replaceResIdInJar(classFile: File, newPkgId: Int, rootDirPath: String): String {
+fun replaceResIdInJar(classFile: File, newPkgIdStr: String, rootDirPath: String): String {
+    if (classFile.isFile()) {
+        if (!classFile.name.endsWith("R.class")) {
+            return rootDirPath
+        }
+        val javaSourcePath = "${classFile.parent}${File.separator}R.java"
+        val rFile = file(javaSourcePath)
+        executeCommand("$jadPath -p ${classFile.absolutePath} > $javaSourcePath")
+        val fileReader = FileReader(rFile)
+        val lines = ArrayList<String>()
+        fileReader.readLines().forEach {
+            lines.add(it.replace("0x7f", newPkgIdStr))
+        }
+        fileReader.close()
+        val fileWriter = FileWriter(rFile)
+        lines.forEach {
+            fileWriter.write(it)
+            fileWriter.write("\n")
+        }
+        fileWriter.close()
+        executeCommand("javac $javaSourcePath")
+        rFile.delete()
+    } else {
+        classFile.listFiles()?.forEach {
+            replaceResIdInJar(it, newPkgIdStr, rootDirPath)
+        }
+    }
+    return rootDirPath
+}
+
+fun replaceResIdInJar2(classFile: File, newPkgId: Int, rootDirPath: String): String {
     val newClassPath = File(rootDirPath).parentFile.absolutePath + File.separator + "RTemp"
 //    logger.error("classFileName:${classFile.absolutePath.substring(rootDirPath.length + 1)}")
     if (classFile.isFile) {
@@ -134,7 +214,7 @@ fun replaceResIdInJar(classFile: File, newPkgId: Int, rootDirPath: String): Stri
         ctClass.defrost()
     } else {
         classFile.listFiles()?.forEach {
-            replaceResIdInJar(it, newPkgId, rootDirPath)
+            replaceResIdInJar2(it, newPkgId, rootDirPath)
         }
     }
     return newClassPath
@@ -152,10 +232,6 @@ fun dealApFile(packageOutputFile: File, newPkgId: Int, pkgName: String) {
             return filePath.endsWith(".xml")
         }
     }, true)
-    val zipTemp = packageOutputFile.parentFile.absolutePath + File.separator + "ZipTemp.zip"
-    executeCommand("D:\\Android\\Sdk\\build-tools\\35.0.0\\zipalign.exe -v -p 4 " + packageOutputFile.getPath() + " " + zipTemp)
-    packageOutputFile.delete()
-    file(zipTemp).renameTo(packageOutputFile)
     file(unzipPath).deleteRecursively() //如果需要可以在处理后删除解压后的文件
 }
 
@@ -251,7 +327,8 @@ fun replaceResIdInArsc(resFile: File, newPkgId: Int, pkgName: String) {
                         buf[packageStart + 4] = (newPackageSize and 0x000000ff).toByte()
                         buf[packageStart + 5] = (newPackageSize and 0x0000ff00).shr(8).toByte()
                         buf[packageStart + 6] = (newPackageSize and 0x00ff0000).shr(16).toByte()
-                        buf[packageStart + 7] = (newPackageSize and 0xff000000.toInt()).shr(24).toByte()
+                        buf[packageStart + 7] =
+                            (newPackageSize and 0xff000000.toInt()).shr(24).toByte()
                     } else {
                         logger.error("can not find default package id.")
                         return
@@ -378,8 +455,10 @@ fun getDynamicRef(pkgName: String, newPkgId: Int): ByteArray {
     pkgBuf[typeLength + headSizeLength + totalSizeLength + countLength + 3] = 0x00
     //
     for (i in 0 until pkgNameByte.size) {
-        pkgBuf[typeLength + headSizeLength + totalSizeLength + countLength + pkgIdLength + i * 2] = pkgNameByte[i]
-        pkgBuf[typeLength + headSizeLength + totalSizeLength + countLength + pkgIdLength + i * 2 + 1] = 0x00
+        pkgBuf[typeLength + headSizeLength + totalSizeLength + countLength + pkgIdLength + i * 2] =
+            pkgNameByte[i]
+        pkgBuf[typeLength + headSizeLength + totalSizeLength + countLength + pkgIdLength + i * 2 + 1] =
+            0x00
     }
     return pkgBuf
 }

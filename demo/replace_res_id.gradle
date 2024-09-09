@@ -1,7 +1,12 @@
 /**
+ * If you run this script not on windows, please download jad from https://varaneckas.com/jad/
  * add buildscript at head of module's build.gradle
  */
 buildscript {
+    ext {
+        // FIXME:change to your jad
+        jadPath = "${project.projectDir.absolutePath}${File.separator}jad.exe"
+    }
     repositories {
         mavenCentral()
         maven { url 'https://maven.aliyun.com/nexus/content/groups/public/' }
@@ -10,7 +15,6 @@ buildscript {
         classpath "org.javassist:javassist:3.30.2-GA"
     }
 }
-
 
 import javassist.ClassPool
 import javassist.CtClass
@@ -39,7 +43,7 @@ project.afterEvaluate {
                 logger.error("output file path:${it.absolutePath}")
                 if (it.name.endsWith("R.jar")) {
                     logger.error("      time:${it.lastModified()}")
-                    dealJarFile(it, newPkgId)
+                    dealJarFile(it, newPkgIdStr)
                 } else if (it.name.endsWith("stableIds.txt")) {
                     logger.error("      time:${it.lastModified()}")
                     replaceResIdInRText(it, newPkgIdStr)
@@ -78,7 +82,22 @@ void replaceResIdInRText(File textSymbolOutputFile, String newPkgIdStr) {
     }
 }
 
-void dealJarFile(File jarFile, int newPkgId) {
+void dealJarFile(File jarFile, String newPkgIdStr) {
+    String outDirPath = jarFile.parentFile.absolutePath + File.separator + "R"
+    unZip(jarFile, outDirPath)
+    jarFile.delete()
+    String newClassPath = replaceResIdInJar(file(outDirPath), newPkgIdStr, outDirPath)
+    zipFolder(newClassPath, jarFile.absolutePath, new ZipStrategy(outDirPath) {
+
+        @Override
+        boolean compressed() {
+            return false
+        }
+    }, true)
+    file(outDirPath).deleteDir()
+    file(newClassPath).deleteDir()
+}
+void dealJarFile2(File jarFile, int newPkgId) {
     String outDirPath = jarFile.parentFile.absolutePath + File.separator + "R"
     unZip(jarFile, outDirPath)
     jarFile.delete()
@@ -95,7 +114,13 @@ void dealJarFile(File jarFile, int newPkgId) {
 }
 
 boolean executeCommand(String cmd) {
-    println("开始执行命令===>$cmd")
+    return executeCommand(cmd, false)
+}
+
+boolean executeCommand(String cmd, boolean printLog) {
+    if (printLog) {
+        println("开始执行命令===>$cmd")
+    }
     Process process = Runtime.getRuntime().exec("cmd /c $cmd")
     consumeInputStream(process.inputStream)
     consumeInputStream(process.errorStream)
@@ -116,7 +141,37 @@ void consumeInputStream(InputStream inputStream) {
     }
 }
 
-String replaceResIdInJar(File classFile, int newPkgId, String rootDirPath) {
+String replaceResIdInJar(File classFile, String newPkgIdStr, String rootDirPath) {
+    if (classFile.isFile()) {
+        if (!classFile.name.endsWith("R.class")) {
+            return rootDirPath
+        }
+        String javaSourcePath = "${classFile.parent}${File.separator}R.java"
+        File rFile = new File(javaSourcePath)
+        executeCommand("${jadPath} -p ${classFile.absolutePath} > ${javaSourcePath}")
+        FileReader fileReader = new FileReader(rFile)
+        List<String> lines = new ArrayList<>()
+        fileReader.readLines().each {
+            lines.add(it.replace("0x7f", newPkgIdStr))
+        }
+        fileReader.close()
+        FileWriter fileWriter = new FileWriter(rFile)
+        lines.each {
+            fileWriter.write(it)
+            fileWriter.write('\n')
+        }
+        fileWriter.close()
+        executeCommand("javac ${javaSourcePath}")
+        rFile.delete()
+    } else {
+        classFile.listFiles().each {
+            replaceResIdInJar(it, newPkgIdStr, rootDirPath)
+        }
+    }
+    return rootDirPath
+}
+
+String replaceResIdInJar2(File classFile, int newPkgId, String rootDirPath) {
     String newClassPath = file(rootDirPath).parentFile.absolutePath + File.separator + "RTemp"
 //    logger.error("classFileName:${classFile.absolutePath.substring(rootDirPath.length + 1)}")
     if (classFile.isFile()) {
@@ -130,8 +185,8 @@ String replaceResIdInJar(File classFile, int newPkgId, String rootDirPath) {
         ClassFile clazzFile = new ClassFile(dataInputStream)
         fileInputStream.close()
         dataInputStream.close()
-        CtClass ctClass = ClassPool.getDefault().makeClass(clazzFile)
-        ctClass.defrost()
+        ClassPool classPool = new ClassPool()
+        CtClass ctClass = classPool.makeClass(clazzFile)
         CtField[] oldFields = ctClass.fields
         oldFields.each {
             if (it.type.name == "int") {
@@ -161,20 +216,19 @@ String replaceResIdInJar(File classFile, int newPkgId, String rootDirPath) {
                             CtField.Initializer.byNewArray(CtClass.intType, values.length)
                     )
                 } else {
-                    ctClass.removeField(it)
+//                    ctClass.removeField(it)
+//                    logger.error("test:${it.name} type:${it.type.name} and it:${it.constantValue}")
 //                    CtField field = new CtField(it, ctClass)
-//                    ctClass.addField(field, "{}")
+//                    field = CtField.make("public static final int[] ${it.name} = new int[]{1,2,3}", ctClass)
+//                    ctClass.addField(field)
 //                    ctClass.addField(
 //                            field,
-//                            CtField.Initializer.byNewArray(CtClass.intType, 3)
+//                            CtField.Initializer.byNewArray(classPool.get(int[].class.name), 3)
 //                    )
                 }
-
-                logger.error("test:${it.type.name} and it:${it.type}")
             }
         }
         ctClass.writeFile(newClassPath)
-        ctClass.defrost()
     } else {
         classFile.listFiles().each {
             replaceResIdInJar(it, newPkgId, rootDirPath)
@@ -553,7 +607,7 @@ void zipFile(
             // 需要保留原来的文件结构时,需要对空文件夹进行处理
             if (keepDirStructure) {
                 // 空文件夹的处理
-                out.putNextEntry(ZipEntry("$name/"))
+                out.putNextEntry(new ZipEntry("$name/"))
                 // 没有文件，不需要文件的 copy
                 out.closeEntry()
             }
