@@ -254,16 +254,62 @@ fun replaceResIdInResDir(resPath: String, newPkgId: Int) {
 
 fun replaceResIdInXml(resFile: File, newPkgId: Int) {
     val buf = resFile.readBytes()
-    for (i in 0 until buf.size - 7 step 4) {
-        if (buf.get(i).toInt() == 0x08 && buf.get(i + 1).toInt() == 0x00 && buf.get(i + 2)
-                .toInt() == 0x00
-            && (buf.get(i + 3).toInt() == 0x01 || buf.get(i + 3).toInt() == 0x02)
-        ) {
-            if (buf.get(i + 7).toInt() == 0x7f) {
-                buf.set(i + 7, newPkgId.toByte())
+    if (buf[0].toInt() == 0x03 && buf[1].toInt() == 0x00) {
+        val xmlHeaderSize = convert2ByteToInt(buf, 2)
+        val stringsPoolStart = xmlHeaderSize
+        if (buf[stringsPoolStart].toInt() == 0x01 && buf[stringsPoolStart + 1].toInt() == 0x00) {
+            val stringsPoolSize = convert4ByteToInt(buf, stringsPoolStart + 4)
+            val idsPoolStart = stringsPoolStart + stringsPoolSize
+            if (buf[idsPoolStart].toInt()
+                    .and(0xff) == 0x80 && buf[idsPoolStart + 1].toInt() == 0x01
+            ) {
+                val idsPoolHeaderSize = convert2ByteToInt(buf, idsPoolStart + 2)
+                val idsPoolSize = convert4ByteToInt(buf, idsPoolStart + 4)
+                val idCount = (idsPoolSize - idsPoolHeaderSize) / 4
+                val idsPoolDataStart = idsPoolStart + idsPoolHeaderSize
+                for (idIndex in 0 until idCount) {
+                    if (buf[idsPoolDataStart + idIndex * 4 + 3].toInt() == 0x7f) {
+                        buf[idsPoolDataStart + idIndex * 4 + 3] = newPkgId.toByte()
+                    }
+                }
+                var elementStart = idsPoolStart + idsPoolSize
+                while (elementStart < buf.size) {
+                    if (buf[elementStart].toInt() == 0x04 && buf[elementStart + 1].toInt() == 0x01) {
+                        val dataStart = elementStart + convert2ByteToInt(buf, elementStart + 2)
+                        val valueStart = dataStart + 4
+                        if ((buf[valueStart + 3].toInt() == 0x01 || buf[valueStart + 3].toInt() == 0x02) &&
+                            buf[valueStart + 7].toInt() == 0x7f
+                        ) {
+                            buf[valueStart + 7] = newPkgId.toByte()
+                        }
+                    } else if (buf[elementStart].toInt() == 0x02 && buf[elementStart + 1].toInt() == 0x01) {
+                        val dataStart = elementStart + convert2ByteToInt(buf, elementStart + 2)
+                        val attributeStart = convert2ByteToInt(buf, dataStart + 8)
+                        val attributeSize = convert2ByteToInt(buf, dataStart + 10)
+                        val attributeCount = convert2ByteToInt(buf, dataStart + 12)
+                        val attrDataListStart = dataStart + attributeStart
+                        var valueStart = attrDataListStart + 12
+                        for (attrIndex in 0 until attributeCount) {
+                            if ((buf[valueStart + 3].toInt() == 0x01 || buf[valueStart + 3].toInt() == 0x02) &&
+                                buf[valueStart + 7].toInt() == 0x7f
+                            ) {
+                                buf[valueStart + 7] = newPkgId.toByte()
+                            }
+                            valueStart += attributeSize
+                        }
+                    }
+                    elementStart += convert4ByteToInt(buf, elementStart + 4)
+                }
+            } else {
+                logger.error("parse ${resFile.absolutePath}'s ids pool failed!")
             }
+        } else {
+            logger.error("parse ${resFile.absolutePath}'s strings pool failed!")
         }
+    } else {
+        logger.error("parse xml ${resFile.absolutePath} failed!")
     }
+
     val outStream = FileOutputStream(resFile)
     outStream.write(buf, 0, buf.size)
     outStream.flush()

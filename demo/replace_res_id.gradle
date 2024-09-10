@@ -272,15 +272,60 @@ void replaceResIdInResDir(String resPath, int newPkgId) {
 
 private void replaceResIdInXml(File resFile, int newPkgId) {
     byte[] buf = resFile.readBytes()
-    for (int i = 0; i < buf.size() - 7; i += 4) {
-        if ((int) buf[i] == 0x08 && (int) buf[i + 1] == 0x00 && (int) buf[i + 2] == 0x00
-                && ((int) buf[i + 3] == 0x01 || (int) buf[i + 3] == 0x02)
-        ) {
-            if ((int) buf[i + 7] == 0x7f) {
-                buf[i + 7] = newPkgId.byteValue()
+    if (buf[0].intValue() == 0x03 && buf[1].intValue() == 0x00) {
+        int xmlHeaderSize = convert2ByteToInt(buf, 2)
+        int stringsPoolStart = xmlHeaderSize
+        if (buf[stringsPoolStart].intValue() == 0x01 && buf[stringsPoolStart + 1].intValue() == 0x00) {
+            int stringsPoolSize = convert4ByteToInt(buf, stringsPoolStart + 4)
+            int idsPoolStart = stringsPoolStart + stringsPoolSize
+            if (Byte.toUnsignedInt(buf[idsPoolStart]) == 0x80 && buf[idsPoolStart + 1].intValue() == 0x01) {
+                int idsPoolHeaderSize = convert2ByteToInt(buf, idsPoolStart + 2)
+                int idsPoolSize = convert4ByteToInt(buf, idsPoolStart + 4)
+                int idCount = (idsPoolSize - idsPoolHeaderSize) / 4
+                int idsPoolDataStart = idsPoolStart + idsPoolHeaderSize
+                for (int idIndex = 0; idIndex < idCount; idIndex++) {
+                    if (buf[idsPoolDataStart + idIndex * 4 + 3].intValue() == 0x7f) {
+                        buf[idsPoolDataStart + idIndex * 4 + 3] = newPkgId.byteValue()
+                    }
+                }
+                int elementStart = idsPoolStart + idsPoolSize
+                while (elementStart < buf.length) {
+                    if (buf[elementStart].intValue() == 0x04 && buf[elementStart + 1].intValue() == 0x01) {
+                        int dataStart = elementStart + convert2ByteToInt(buf, elementStart + 2)
+                        int valueStart = dataStart + 4
+                        if (((int) buf[valueStart + 3] == 0x01 || (int) buf[valueStart + 3] == 0x02) &&
+                                (int) buf[valueStart + 7] == 0x7f
+                        ) {
+                            buf[valueStart + 7] = newPkgId.byteValue()
+                        }
+                    } else if (buf[elementStart].intValue() == 0x02 && buf[elementStart + 1].intValue() == 0x01) {
+                        int dataStart = elementStart + convert2ByteToInt(buf, elementStart + 2)
+                        int attributeStart = convert2ByteToInt(buf, dataStart + 8)
+                        int attributeSize = convert2ByteToInt(buf, dataStart + 10)
+                        int attributeCount = convert2ByteToInt(buf, dataStart + 12)
+                        int attrDataListStart = dataStart + attributeStart
+                        int valueStart = attrDataListStart + 12
+                        for (int attrIndex = 0; attrIndex < attributeCount; attrIndex++) {
+                            if (((int) buf[valueStart + 3] == 0x01 || (int) buf[valueStart + 3] == 0x02) &&
+                                    (int) buf[valueStart + 7] == 0x7f
+                            ) {
+                                buf[valueStart + 7] = newPkgId.byteValue()
+                            }
+                            valueStart += attributeSize
+                        }
+                    }
+                    elementStart += convert4ByteToInt(buf, elementStart + 4)
+                }
+            } else {
+                logger.error("parse ${resFile.absolutePath}'s ids pool failed!")
             }
+        } else {
+            logger.error("parse ${resFile.absolutePath}'s strings pool failed!")
         }
+    } else {
+        logger.error("parse xml ${resFile.absolutePath} failed!")
     }
+
     FileOutputStream outStream = new FileOutputStream(resFile)
     outStream.write(buf, 0, buf.size())
     outStream.flush()
