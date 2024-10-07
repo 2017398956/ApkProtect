@@ -48,6 +48,12 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
+    java {
+        toolchain {
+            languageVersion.set(JavaLanguageVersion.of(11))
+        }
+    }
+
     sourceSets {
         main {
             jniLibs.srcDirs = ['libs']

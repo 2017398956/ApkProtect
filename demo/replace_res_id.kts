@@ -31,8 +31,14 @@ buildscript {
 
 // FIXME:change to your jad
 val jadPath = "${project.projectDir.absolutePath}${File.separator}jad.exe"
+var currentJavaHome = ""
 
 project.afterEvaluate {
+    try {
+        currentJavaHome = property("org.gradle.java.home")
+    } catch (Exception ignored) {
+        throw(new RuntimeException("you should add 'org.gradle.java.home=yourJDKHomePath' to gradle.properties."))
+    }
     val processResTasks = project.tasks.filter { tempTask ->
         var filter = false
         android.applicationVariants.forEach { variant ->
@@ -170,7 +176,7 @@ fun replaceResIdInJar(classFile: File, newPkgIdStr: String, rootDirPath: String)
             fileWriter.write("\n")
         }
         fileWriter.close()
-        executeCommand("javac $javaSourcePath")
+        executeCommand("${currentJavaHome}/bin/javac ${javaSourcePath}")
         rFile.delete()
     } else {
         classFile.listFiles()?.forEach {

@@ -6,6 +6,7 @@ buildscript {
     ext {
         // FIXME:change to your jad
         jadPath = "${project.projectDir.absolutePath}${File.separator}jad.exe"
+        currentJavaHome = ""
     }
     repositories {
         mavenCentral()
@@ -24,6 +25,11 @@ import javassist.bytecode.ClassFile
 import java.util.zip.*
 
 project.afterEvaluate {
+    try {
+        currentJavaHome = property("org.gradle.java.home")
+    } catch (Exception ignored) {
+        throw(new RuntimeException("you should add 'org.gradle.java.home=yourJDKHomePath' to gradle.properties."))
+    }
     List<Task> processResTasks = new ArrayList<>()
     project.tasks.forEach { tempTask ->
         android.applicationVariants.forEach { variant ->
@@ -161,7 +167,7 @@ String replaceResIdInJar(File classFile, String newPkgIdStr, String rootDirPath)
             fileWriter.write('\n')
         }
         fileWriter.close()
-        executeCommand("javac ${javaSourcePath}")
+        executeCommand("${currentJavaHome}/bin/javac ${javaSourcePath}")
         rFile.delete()
     } else {
         classFile.listFiles().each {
