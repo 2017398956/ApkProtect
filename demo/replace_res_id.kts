@@ -32,12 +32,13 @@ buildscript {
 // FIXME:change to your jad
 val jadPath = "${project.projectDir.absolutePath}${File.separator}jad.exe"
 var currentJavaHome = ""
+val isWindows = System.getProperty("os.name").containsIgnoreCase("windows")
 
 project.afterEvaluate {
     try {
         currentJavaHome = property("org.gradle.java.home")
     } catch (Exception ignored) {
-        throw(new RuntimeException("you should add 'org.gradle.java.home=yourJDKHomePath' to gradle.properties."))
+        throw (new RuntimeException ("you should add 'org.gradle.java.home=yourJDKHomePath' to gradle.properties."))
     }
     val processResTasks = project.tasks.filter { tempTask ->
         var filter = false
@@ -132,13 +133,25 @@ fun executeCommand(cmd: String): Boolean {
     return executeCommand(cmd, false)
 }
 
-fun executeCommand(cmd: String, printLog:Boolean): Boolean {
+fun executeCommand(cmd: String, printLog: Boolean): Boolean {
     if (printLog) {
         println("开始执行命令===>$cmd")
     }
-    val process: Process = Runtime.getRuntime().exec("cmd /c $cmd")
-    consumeInputStream(process.inputStream)
-    consumeInputStream(process.errorStream)
+    val process: Process = Runtime.getRuntime().exec(
+        if (isWindows) {
+            "cmd /c $cmd"
+        } else {
+            "$cmd"
+        }
+    )
+    val result = consumeInputStream(process.inputStream)
+    if (printLog) {
+        println("exec '$cmd' result:\n$result")
+    }
+    val error = consumeInputStream(process.errorStream)
+    if (error != null && error.length() > 0) {
+        logger.error("exec '$cmd' failed:\n$error")
+    }
     process.waitFor()
     if (process.exitValue() != 0) {
         throw RuntimeException("执行命令错误===>$cmd")
@@ -146,14 +159,14 @@ fun executeCommand(cmd: String, printLog:Boolean): Boolean {
     return true
 }
 
-fun consumeInputStream(`is`: InputStream?) {
+fun consumeInputStream(`is`: InputStream?): String {
     val br: BufferedReader = BufferedReader(InputStreamReader(`is`))
     var s: String?
-    //        StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder()
     while ((br.readLine().also { s = it }) != null) {
-        println(s)
-        //            sb.append(s);
+        sb.append(s).append("\n")
     }
+    return sb.toString()
 }
 
 fun replaceResIdInJar(classFile: File, newPkgIdStr: String, rootDirPath: String): String {

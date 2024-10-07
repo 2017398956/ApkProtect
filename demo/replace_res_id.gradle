@@ -5,8 +5,9 @@
 buildscript {
     ext {
         // FIXME:change to your jad
-        jadPath = "${project.projectDir.absolutePath}${File.separator}jad.exe"
+        jadPath = "${project.projectDir.absolutePath}${File.separator}jad"
         currentJavaHome = ""
+        isWindows = System.getProperty("os.name").containsIgnoreCase("windows")
     }
     repositories {
         mavenCentral()
@@ -28,7 +29,7 @@ project.afterEvaluate {
     try {
         currentJavaHome = property("org.gradle.java.home")
     } catch (Exception ignored) {
-        throw(new RuntimeException("you should add 'org.gradle.java.home=yourJDKHomePath' to gradle.properties."))
+        throw (new RuntimeException("you should add 'org.gradle.java.home=yourJDKHomePath' to gradle.properties."))
     }
     List<Task> processResTasks = new ArrayList<>()
     project.tasks.forEach { tempTask ->
@@ -103,6 +104,7 @@ void dealJarFile(File jarFile, String newPkgIdStr) {
     file(outDirPath).deleteDir()
     file(newClassPath).deleteDir()
 }
+
 void dealJarFile2(File jarFile, int newPkgId) {
     String outDirPath = jarFile.parentFile.absolutePath + File.separator + "R"
     unZip(jarFile, outDirPath)
@@ -127,9 +129,15 @@ boolean executeCommand(String cmd, boolean printLog) {
     if (printLog) {
         println("开始执行命令===>$cmd")
     }
-    Process process = Runtime.getRuntime().exec("cmd /c $cmd")
-    consumeInputStream(process.inputStream)
-    consumeInputStream(process.errorStream)
+    Process process = Runtime.getRuntime().exec("${isWindows? "cmd /c " : ""}$cmd")
+    String result = consumeInputStream(process.inputStream)
+    if (printLog) {
+        println("exec '$cmd' result:\n$result")
+    }
+    String error = consumeInputStream(process.errorStream)
+    if (error != null && error.length() > 0) {
+        logger.error("exec '$cmd' failed:\n$error")
+    }
     process.waitFor()
     if (process.exitValue() != 0) {
         throw new RuntimeException("执行命令错误===>$cmd")
@@ -137,14 +145,14 @@ boolean executeCommand(String cmd, boolean printLog) {
     return true
 }
 
-void consumeInputStream(InputStream inputStream) {
+String consumeInputStream(InputStream inputStream) {
     BufferedReader br = new BufferedReader(new InputStreamReader(inputStream))
+    StringBuilder sb = new StringBuilder()
     String s
-    //        StringBuilder sb = new StringBuilder();
     while ((s = br.readLine()) != null) {
-        println(s)
-        //            sb.append(s);
+        sb.append(s).append("\n")
     }
+    return sb
 }
 
 String replaceResIdInJar(File classFile, String newPkgIdStr, String rootDirPath) {
