@@ -10,12 +10,12 @@ import android.content.res.Resources;
 import android.os.Bundle;
 import android.util.Log;
 
+import java.io.File;
+
 import personal.nfl.protect.shell.dex.LoadDexUtil;
 import personal.nfl.protect.shell.util.AESUtil;
 import personal.nfl.protect.shell.util.LogUtil;
 import personal.nfl.protect.shell.util.Utils;
-
-import java.io.File;
 
 public class StubApplication extends Application {
 
@@ -27,7 +27,7 @@ public class StubApplication extends Application {
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
         // me.weishu.reflection.Reflection.unseal(base);
-        String sha1 = "34:06:43:F7:52:38:C9:82:BC:86:3A:C2:83:C3:8C:13:7D:F8:2B:DF";
+        String sha1 = "APkSHA1";
         String apkSHA1 = Utils.getPackageSignSHA1(base);
         if (!sha1.replace(":", "").equals(apkSHA1)) {
             // TODO: crash

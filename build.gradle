@@ -32,9 +32,118 @@ task clean(type: Delete) {
     delete rootProject.buildDir
 }
 
+interface OnReadLineListener {
+    boolean onReadLine(String lineStr)
+}
 
-//自动化构建，生成加固所需要的资源
-task jiagu() {
+def runCommand(OnReadLineListener listener, boolean printLog, String... command) {
+    ProcessBuilder processBuilder = new ProcessBuilder()
+    processBuilder.redirectErrorStream(true)
+    processBuilder.command(command)
+    Process process = processBuilder.start()
+    if (printLog) {
+        println("process start")
+    }
+    InputStreamReader inputReader = new InputStreamReader(process.getInputStream(), "UTF-8")
+    BufferedReader bufferedReader = new BufferedReader(inputReader)
+    StringBuilder stringBuilder = new StringBuilder();
+    String line
+    while ((line = bufferedReader.readLine()) != null) {
+        stringBuilder.append(line).append("\n")
+        if (printLog) {
+            println(line)
+        }
+        if (listener != null && listener.onReadLine(line)) {
+            break
+        }
+    }
+    process.waitFor()
+    if (printLog) {
+        println("process finish")
+    }
+    inputReader.close()
+    bufferedReader.close()
+    return stringBuilder.toString()
+}
+
+task testCmdTask(type: Exec, description: '执行加固so File 操作') {
+    workingDir projectDir
+    if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
+        commandLine 'cmd', '/c', "echo", "PATH"
+    } else {
+        commandLine 'sh', '-c', "echo", "PATH"
+    }
+}
+
+def getApkSHA1(String apkPath) {
+    String apkSHA1
+    runCommand(new OnReadLineListener() {
+        @Override
+        boolean onReadLine(String lineStr) {
+            if (null != lineStr && lineStr.containsIgnoreCase("SHA1")) {
+                apkSHA1 = lineStr.trim().substring(6)
+                return true
+            }
+            return false
+        }
+    }, false, "keytool", "-printcert", "-jarfile", apkPath)
+    return apkSHA1
+}
+
+task getDemoSHA1() {
+    println("demo sha1:" + getApkSHA1("jiagu/demo-release-unsigned.apk"))
+}
+
+List<String> replaceSHA1InShell(String apkPath, OnReadLineListener listener) {
+    String apkSHA1 = getApkSHA1(apkPath)
+    if (apkSHA1 == null) {
+        logger.error("can not get sha1 from $apkPath")
+    } else {
+        String stubApplicationFilePath = "./jiagu_shell/src/main/java/personal/nfl/protect/shell/StubApplication.java"
+        File stubApplicationFile = new File(stubApplicationFilePath)
+        if (stubApplicationFile.exists()) {
+            FileReader fileReader = new FileReader(stubApplicationFile)
+            List<String> lines = new ArrayList<>()
+            String line
+            boolean findReplaceString = false
+            while ((line = fileReader.readLine()) != null) {
+                if (!findReplaceString) {
+                    findReplaceString = line.contains("String sha1 = \"APkSHA1\";")
+                    if (findReplaceString) {
+                        line = line.replace("APkSHA1", apkSHA1)
+                    }
+                }
+                lines.add(line)
+            }
+            fileReader.close()
+            return lines
+        } else {
+            logger.error("can not find $stubApplicationFilePath")
+        }
+    }
+    return null
+}
+
+def resetStubApplicationFile(List<String> linesStr) {
+    String stubApplicationFilePath = "./jiagu_shell/src/main/java/personal/nfl/protect/shell/StubApplication.java"
+    File stubApplicationFile = new File(stubApplicationFilePath)
+    FileWriter fileWriter = new FileWriter(stubApplicationFile)
+    boolean findResetPlace = false
+    String LABEL = "String sha1 = \""
+    for (String str : linesStr) {
+        if (!findResetPlace) {
+            findResetPlace = str.contains(LABEL)
+            if (findResetPlace) {
+                str = str.substring(0, str.indexOf(LABEL) + LABEL.length()) + "APkSHA1\";"
+            }
+        }
+        fileWriter.write(str)
+    }
+    fileWriter.close()
+}
+
+// 自动化构建，生成加固所需要的资源
+task prePareJiagu() {
 
     delete project('jiagu_shell').buildDir
     //打包编译壳aar, (:jiagu_shell:bundleReleaseAar) 由于 jiagu_shell 从 library 改为 application 所以可以直接取得 dex 了
@@ -141,4 +250,19 @@ task createTestDexFiles() {
         }
         zIn.close();
     }
+}
+
+def getAaptPath() {
+    Properties properties = new Properties()
+    properties.load(project.rootProject.file('local.properties').newDataInputStream())
+    def sdkDir = properties.getProperty('sdk.dir')
+    File buildTools = new File(sdkDir, "build-tools")
+    String[] tools = buildTools.list()
+    String targetTool = Arrays.stream(tools).max(new Comparator<String>() {
+        @Override
+        int compare(String s, String t1) {
+            return s <=> t1
+        }
+    }).orElse("")
+    return "$buildTools$File.separator$targetTool${File.separator}aapt"
 }
