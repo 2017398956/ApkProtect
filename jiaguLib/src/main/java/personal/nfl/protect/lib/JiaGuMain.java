@@ -43,6 +43,7 @@ import personal.nfl.protect.lib.util.KeyStoreUtil;
 import personal.nfl.protect.lib.util.ProcessUtil;
 import personal.nfl.protect.lib.util.Zip4jUtil;
 import personal.nfl.protect.lib.util.ZipUtil;
+import sun.nio.cs.UTF_8;
 
 public class JiaGuMain {
 

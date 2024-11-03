@@ -1,3 +1,5 @@
+import sun.nio.cs.UTF_8
+
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
@@ -28,6 +30,8 @@ allprojects {
     }
 }
 
+String unJiaguApkName = "demo-release-unsigned.apk"
+
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
@@ -37,14 +41,29 @@ interface OnReadLineListener {
 }
 
 def runCommand(OnReadLineListener listener, boolean printLog, String... command) {
-    ProcessBuilder processBuilder = new ProcessBuilder()
+    runCommand(null, listener, printLog, command)
+}
+
+def runCommand(String workDir, OnReadLineListener listener, boolean printLog, String... command) {
+    ProcessBuilder processBuilder = new ProcessBuilder(command)
+    if (null != workDir && !workDir.isBlank()) {
+        processBuilder.directory(new File(workDir))
+    }
     processBuilder.redirectErrorStream(true)
-    processBuilder.command(command)
+    Map<String, Object> pbEnv = processBuilder.environment()
+    String newPath = getAaptPath()
+    if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
+        newPath = newPath + ";" + pbEnv["Path"]
+    } else {
+        newPath = newPath + ":" + pbEnv["Path"]
+    }
+    pbEnv["Path"] = newPath
+//    processBuilder.command(command)
     Process process = processBuilder.start()
     if (printLog) {
         println("process start")
     }
-    InputStreamReader inputReader = new InputStreamReader(process.getInputStream(), "UTF-8")
+    InputStreamReader inputReader = new InputStreamReader(process.getInputStream(), UTF_8.INSTANCE.historicalName())
     BufferedReader bufferedReader = new BufferedReader(inputReader)
     StringBuilder stringBuilder = new StringBuilder();
     String line
@@ -69,7 +88,8 @@ def runCommand(OnReadLineListener listener, boolean printLog, String... command)
 task testCmdTask(type: Exec, description: '执行加固so File 操作') {
     workingDir projectDir
     if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
-        commandLine 'cmd', '/c', "echo", "PATH"
+        // commandLine 'cmd', '/c', "echo", "%PATH%"
+        commandLine 'cmd', '/c', "echo", "Test Cmd"
     } else {
         commandLine 'sh', '-c', "echo", "PATH"
     }
@@ -91,7 +111,7 @@ def getApkSHA1(String apkPath) {
 }
 
 task getDemoSHA1() {
-    println("demo sha1:" + getApkSHA1("jiagu/demo-release-unsigned.apk"))
+    println("demo sha1:" + getApkSHA1("jiagu/" + unJiaguApkName))
 }
 
 List<String> replaceSHA1InShell(String apkPath, OnReadLineListener listener) {
@@ -144,7 +164,6 @@ def resetStubApplicationFile(List<String> linesStr) {
 
 // 自动化构建，生成加固所需要的资源
 task prePareJiagu() {
-
     delete project('jiagu_shell').buildDir
     //打包编译壳aar, (:jiagu_shell:bundleReleaseAar) 由于 jiagu_shell 从 library 改为 application 所以可以直接取得 dex 了
     dependsOn project('jiagu_shell').tasks.findByPath(':jiagu_shell:assembleRelease')
@@ -214,7 +233,7 @@ task copyApkDebug() {
             from 'demo/build/outputs/apk/debug/demo-debug.apk'
             into { root.absolutePath }
             rename { fileName ->
-                fileName = "demo-release-unsigned.apk"
+                fileName = unJiaguApkName
             }
         }
     }
@@ -227,7 +246,7 @@ task createTestDexFiles() {
         if (!destDir.exists()) {
             destDir.mkdirs()
         }
-        ZipInputStream zIn = new ZipInputStream(new FileInputStream(new File("jiagu/demo-release-unsigned.apk")))
+        ZipInputStream zIn = new ZipInputStream(new FileInputStream(new File("jiagu", unJiaguApkName)))
         ZipEntry entry = null;
         FileOutputStream fos = null;
         byte[] buf = new byte[1024 * 8];
@@ -264,5 +283,14 @@ def getAaptPath() {
             return s <=> t1
         }
     }).orElse("")
-    return "$buildTools$File.separator$targetTool${File.separator}aapt"
+    return "$buildTools$File.separator$targetTool"
+}
+
+task excJiagu() {
+    doLast {
+        // 如果 task 不指定 type 为 Exec，那么当 windows 平台时，
+        // 需要加上 cmd /c 才能执行本来不在环境变量 Path 里程序
+        // runCommand(null, true, "cmd", "/c", "aapt", "--version-name")
+        runCommand("jiagu", null, true, "java", "-jar", "jiaguLib.jar", unJiaguApkName, "keystore.cfg")
+    }
 }
