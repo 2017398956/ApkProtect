@@ -6,7 +6,7 @@ plugins {
 jar{
     def map = [
             'Main-Class':"personal.nfl.protect.lib.JiaGuMain",//执行java -jar .\jiaguLib.jar命令时，指定运行的main所在类
-            'Class-Path':"libs/zip4j-2.9.1.jar libs/AXMLEditor.jar"     //指定依赖的包，依赖多个jar包时，以空格区分
+            'Class-Path':"libs/zip4j-2.11.5.jar libs/AXMLEditor.jar libs/APKEditor-1.4.1.jar",     //指定依赖的包，依赖多个jar包时，以空格区分
     ]
     manifest.attributes(map)
 }
@@ -21,4 +21,4 @@ dependencies {
 }
 
 
-//执行jar命令 : java -jar jiaguLib.jar [apk名称]
+// 执行jar命令 : java -jar jiaguLib.jar [apk名称]

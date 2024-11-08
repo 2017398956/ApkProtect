@@ -1,5 +1,3 @@
-import sun.nio.cs.UTF_8
-
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
@@ -45,25 +43,25 @@ def runCommand(OnReadLineListener listener, boolean printLog, String... command)
 }
 
 def runCommand(String workDir, OnReadLineListener listener, boolean printLog, String... command) {
-    ProcessBuilder processBuilder = new ProcessBuilder(command)
+    ProcessBuilder processBuilder = new ProcessBuilder()
     if (null != workDir && !workDir.isBlank()) {
-        processBuilder.directory(new File(workDir))
+//        processBuilder.directory(new File(workDir))
     }
     processBuilder.redirectErrorStream(true)
     Map<String, Object> pbEnv = processBuilder.environment()
     String newPath = getAaptPath()
-    if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
-        newPath = newPath + ";" + pbEnv["Path"]
-    } else {
-        newPath = newPath + ":" + pbEnv["Path"]
-    }
-    pbEnv["Path"] = newPath
-//    processBuilder.command(command)
+//    if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
+//        newPath = newPath + ";" + pbEnv["Path"]
+//    } else {
+//        newPath = newPath + ":" + pbEnv["Path"]
+//    }
+//    pbEnv["Path"] = newPath
+    processBuilder.command(command)
     Process process = processBuilder.start()
     if (printLog) {
         println("process start")
     }
-    InputStreamReader inputReader = new InputStreamReader(process.getInputStream(), UTF_8.INSTANCE.historicalName())
+    InputStreamReader inputReader = new InputStreamReader(process.getInputStream(), "UTF8")
     BufferedReader bufferedReader = new BufferedReader(inputReader)
     StringBuilder stringBuilder = new StringBuilder();
     String line
@@ -88,6 +86,10 @@ def runCommand(String workDir, OnReadLineListener listener, boolean printLog, St
 task testCmdTask(type: Exec, description: '执行加固so File 操作') {
     workingDir projectDir
     if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
+        /**
+         * 如果执行命令后报 finished with non-zero exit value xxx,
+         * 那么把 /c 去掉试试
+         */
         // commandLine 'cmd', '/c', "echo", "%PATH%"
         commandLine 'cmd', '/c', "echo", "Test Cmd"
     } else {
@@ -111,7 +113,9 @@ def getApkSHA1(String apkPath) {
 }
 
 task getDemoSHA1() {
-    println("demo sha1:" + getApkSHA1("jiagu/" + unJiaguApkName))
+    doLast {
+        println("demo sha1:" + getApkSHA1("jiagu/" + unJiaguApkName))
+    }
 }
 
 List<String> replaceSHA1InShell(String apkPath, OnReadLineListener listener) {
@@ -163,9 +167,9 @@ def resetStubApplicationFile(List<String> linesStr) {
 }
 
 // 自动化构建，生成加固所需要的资源
-task prePareJiagu() {
+task prepareJiagu() {
     delete project('jiagu_shell').buildDir
-    //打包编译壳aar, (:jiagu_shell:bundleReleaseAar) 由于 jiagu_shell 从 library 改为 application 所以可以直接取得 dex 了
+    // 打包编译壳 aar, (:jiagu_shell:bundleReleaseAar) 由于 jiagu_shell 从 library 改为 application 所以可以直接取得 dex 了
     dependsOn project('jiagu_shell').tasks.findByPath(':jiagu_shell:assembleRelease')
 
     delete project('jiaguLib').buildDir
@@ -174,15 +178,14 @@ task prePareJiagu() {
 
     doLast {
         println("jiagu ============= 已编译Aar")
-
-        //在根工程中创建jiagu文件夹
-        def root = new File(rootDir, '/jiagu')
+        // 在根工程中创建 jiagu 文件夹
+        def root = new File(rootDir, 'jiagu')
         if (root.exists()) {
             delete root
         }
         root = rootProject.mkdir('jiagu')
         println("jiagu ============= 已重新创建了 - jiagu目录")
-        //将aar文件复制到jiagu目录中
+        //将 aar文件复制到 jiagu 目录中
         // copy {
         //     from 'jiagu_shell/build/outputs/aar'
         //     into{root.absolutePath+"/aar"}
@@ -215,7 +218,7 @@ task prePareJiagu() {
 task copyApk() {
     // 生成 demo apk
     dependsOn project('demo').tasks.findByPath(':demo:assembleRelease')
-    def root = new File(rootDir, '/jiagu')
+    def root = new File(rootDir, 'jiagu')
     doLast {
         copy {
             from 'demo/build/outputs/apk/release'
@@ -227,7 +230,7 @@ task copyApk() {
 task copyApkDebug() {
     // 生成 demo apk
     dependsOn project('demo').tasks.findByPath(':demo:assembleDebug')
-    def root = new File(rootDir, '/jiagu')
+    def root = new File(rootDir, 'jiagu')
     doLast {
         copy {
             from 'demo/build/outputs/apk/debug/demo-debug.apk'
@@ -286,11 +289,20 @@ def getAaptPath() {
     return "$buildTools$File.separator$targetTool"
 }
 
-task excJiagu() {
-    doLast {
-        // 如果 task 不指定 type 为 Exec，那么当 windows 平台时，
-        // 需要加上 cmd /c 才能执行本来不在环境变量 Path 里程序
-        // runCommand(null, true, "cmd", "/c", "aapt", "--version-name")
-        runCommand("jiagu", null, true, "java", "-jar", "jiaguLib.jar", unJiaguApkName, "keystore.cfg")
+task excJiagu(type: Exec) {
+    workingDir new File(projectDir, "jiagu")
+    if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
+        commandLine "cmd", "/K", "java", "-jar", "jiaguLib.jar", unJiaguApkName, "keystore.cfg"
+    } else {
+    }
+}
+
+task protectApk(type: Exec) {
+    workingDir new File(projectDir, "jiagu")
+    if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
+//        commandLine "cmd", "/K", "java", "-jar", "libs/APKEditor-1.4.1.jar", "-h"
+        commandLine "cmd", "/K", "java", "-jar", "libs/APKEditor-1.4.1.jar", "p", "-i", "out/demo-release-unsigned_align_signed.apk", "-o", "out/demo-release-unsigned_align_signed_protected.apk"
+    } else {
+        commandLine 'sh', "java", "-jar", "libs/APKEditor-1.4.1.jar", "p", "-i", "out/${unJiaguApkName}", "-o", "out/protected_${unJiaguApkName}"
     }
 }

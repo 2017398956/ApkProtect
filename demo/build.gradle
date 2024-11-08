@@ -12,9 +12,9 @@ plugins {
     id 'com.android.application'
 }
 
-apply {
-    from("replace_res_id.gradle")
-}
+//apply {
+//    from("replace_res_id.gradle")
+//}
 
 android {
     compileSdk 34

@@ -1,5 +1,10 @@
 package personal.nfl.protect.lib;
 
+import com.reandroid.app.AndroidManifest;
+import com.reandroid.arsc.chunk.xml.AndroidManifestBlock;
+import com.reandroid.arsc.chunk.xml.ResXmlAttribute;
+import com.reandroid.arsc.chunk.xml.ResXmlElement;
+
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
 import net.lingala.zip4j.model.FileHeader;
@@ -43,7 +48,6 @@ import personal.nfl.protect.lib.util.KeyStoreUtil;
 import personal.nfl.protect.lib.util.ProcessUtil;
 import personal.nfl.protect.lib.util.Zip4jUtil;
 import personal.nfl.protect.lib.util.ZipUtil;
-import sun.nio.cs.UTF_8;
 
 public class JiaGuMain {
 
@@ -135,7 +139,8 @@ public class JiaGuMain {
             File dexFile = combine2NewDexFile(shellDexFile, dexZipFile);
             //步骤四：修改AndroidManifest（Application的android:name属性和新增<meta-data>）
 //            String outpath = modifyOriginApkManifest();
-            String outpath = modifyOriginApkManifest2();
+//            String outpath = modifyOriginApkManifest2();
+            String outpath = modifyOriginApkManifest3();
 
             //步骤五：将步骤三生成的新dex文件替换apk中的所有dex文件
             if (dexFile != null && !outpath.isEmpty()) {
@@ -393,8 +398,8 @@ public class JiaGuMain {
             outApk = OUT_TMP + apkPath.substring(apkPath.lastIndexOf("/") + 1);
             Files.copy(new File(ORIGIN_APK).toPath(), new File(outApk).toPath(), StandardCopyOption.REPLACE_EXISTING);
             ProcessUtil.executeCommand("aapt r " + outApk + " AndroidManifest.xml");
-            Zip4jUtil.addFile2Zip(outApk, manifestFile.getPath(), "");
-            FileUtils.deleteFile(manifestFile.getPath());
+            Zip4jUtil.addFile2Zip(outApk, manifestFile.getAbsolutePath(), "");
+            FileUtils.deleteFile(manifestFile.getAbsolutePath());
             System.out.println("=== modifyOriginApkManifest2 ==== " + (System.currentTimeMillis() - start) + "ms");
 
         } else {
@@ -403,6 +408,36 @@ public class JiaGuMain {
         return outApk;
     }
 
+    private String modifyOriginApkManifest3() throws Exception {
+        String apkPath = ORIGIN_APK;
+        logTitle("步骤四：直接修改AndroidManifest（Application的android:name属性和新增<meta-data>）");
+        String outApk = "";
+        long start = System.currentTimeMillis();
+        // 1.将AndroidManifest.xml从apk中提取出来
+        Zip4jUtil.extractFile(apkPath, "AndroidManifest.xml", OUT_TMP);
+        File manifestFile = new File(OUT_TMP, "AndroidManifest.xml");
+        if (manifestFile.exists()) {
+            AndroidManifestBlock androidManifestBlock = AndroidManifestBlock.load(manifestFile);
+            ResXmlElement metaDataElement = androidManifestBlock.getApplicationElement().createChildElement("meta-data");
+            ResXmlAttribute nameAttr = metaDataElement.getOrCreateAndroidAttribute(AndroidManifest.NAME_name, AndroidManifest.ID_name);
+            nameAttr.setValueAsString("APPLICATION_CLASS_NAME");
+            ResXmlAttribute valueAttr = metaDataElement.getOrCreateAndroidAttribute(AndroidManifest.NAME_value, AndroidManifest.ID_value);
+            valueAttr.setValueAsString(androidManifestBlock.getApplicationClassName());
+            androidManifestBlock.setApplicationClassName(Configs.shellProxyApplicationClassName);
+            androidManifestBlock.refresh();
+            androidManifestBlock.writeBytes(manifestFile);
+            // 2.将修改完成的AndroidManifest.xml重新添加到apk中
+            outApk = OUT_TMP + apkPath.substring(apkPath.lastIndexOf("/") + 1);
+            Files.copy(new File(ORIGIN_APK).toPath(), new File(outApk).toPath(), StandardCopyOption.REPLACE_EXISTING);
+            ProcessUtil.executeCommand("aapt r " + outApk + " AndroidManifest.xml");
+            Zip4jUtil.addFile2Zip(outApk, manifestFile.getAbsolutePath(), "");
+            FileUtils.deleteFile(manifestFile.getAbsolutePath());
+            System.out.println("=== modifyOriginApkManifest3 ==== " + (System.currentTimeMillis() - start) + "ms");
+        } else {
+            throw new FileNotFoundException("cannot find file: AndroidManifest.xml in " + OUT_TMP);
+        }
+        return outApk;
+    }
 
     /**
      * 步骤五：将步骤三生成的新dex文件替换apk中的所有dex文件
@@ -489,6 +524,9 @@ public class JiaGuMain {
      */
     private File zipalignApk(File unAlignedApk) throws Exception {
         logTitle("步骤六：重新对APK进行对齐处理.....");
+//        File protectedApk = new File(unAlignedApk.getParent(), unAlignedApk.getName().replace(".apk", "_protected.apk"));
+//        String cmd = String.format(Locale.CHINESE, "java -jar ./libs/APKEditor-1.4.1.jar p -i %s -o %s", unAlignedApk.getAbsolutePath(), protectedApk.getAbsolutePath());
+//        ProcessUtil.executeCommand(cmd);
         //步骤四：重新对APK进行对齐处理
         File alignedApk = new File(unAlignedApk.getParent(), unAlignedApk.getName().replace(".apk", "_align.apk"));
         boolean ret = ProcessUtil.executeCommand("zipalign -v -p 4 " + unAlignedApk.getPath() + " " + alignedApk.getPath());

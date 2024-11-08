@@ -23,6 +23,11 @@ public class StubApplication extends Application {
 
     private Application app;
 
+    public StubApplication() {
+        super();
+        LogUtil.debug("StubApplication created.");
+    }
+
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
