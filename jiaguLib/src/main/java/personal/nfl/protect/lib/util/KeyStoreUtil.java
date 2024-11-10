@@ -1,6 +1,6 @@
 package personal.nfl.protect.lib.util;
 
-import personal.nfl.protect.lib.entity.KeyStore;
+import personal.nfl.protect.lib.entity.ArgsBean;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -14,7 +14,7 @@ public class KeyStoreUtil {
      * @param configPath 签名文件路径
      * @return 签名对象
      */
-    public static KeyStore readKeyStoreConfig(String configPath){
+    public static ArgsBean readKeyStoreConfig(String configPath){
         File cf = new File(configPath);
         if (!cf.exists()){
             System.out.println("签名配置文件不存在");
@@ -23,11 +23,11 @@ public class KeyStoreUtil {
 
         try {
             List<String> lines = Files.readAllLines(cf.toPath());
-            if (lines == null || lines.size() <= 0){
+            if (lines.isEmpty()){
                 System.out.println("签名配置文件内容为空");
                 return null;
             }
-            KeyStore store = new KeyStore();
+            ArgsBean store = new ArgsBean();
             for (String line : lines){
                 if (line.trim().startsWith("storeFile")){
                     store.storeFile = line.split("=")[1].trim();
@@ -37,8 +37,6 @@ public class KeyStoreUtil {
                     store.alias = line.split("=")[1].trim();
                 }else if (line.trim().startsWith("keyPassword")){
                     store.keyPassword = line.split("=")[1].trim();
-                }else if (line.trim().startsWith("mergeDexFiles")){
-                    store.mergeDexFiles = line.split("=")[1].trim().equals("true");
                 }
             }
             return store;

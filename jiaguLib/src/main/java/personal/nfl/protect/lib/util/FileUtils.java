@@ -86,4 +86,30 @@ public class FileUtils {
         }
         return null;
     }
+
+    public static int getAppMinSdk(File file) {
+        int minSdkVersion = -1;
+        if (!file.exists()) {
+            return minSdkVersion;
+        }
+        try {
+            FileInputStream is = new FileInputStream(file);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.contains("android:minSdkVersion")) {
+                    try {
+                        minSdkVersion = Integer.parseInt(line.substring(line.length() - 2),16);
+                    } catch (Exception ignored) {
+                    }
+                    break;
+                }
+            }
+            reader.close();
+            is.close();
+        } catch (Exception ignored) {
+        }
+        return minSdkVersion;
+    }
+
 }
