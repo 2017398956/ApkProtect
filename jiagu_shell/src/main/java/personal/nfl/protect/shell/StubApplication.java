@@ -44,10 +44,12 @@ public class StubApplication extends Application {
             String abi = nativeLibraryDir.substring(nativeLibraryDir.lastIndexOf("/") + 1);
             LogUtil.info("获取到的 abi 裁剪路径：" + abi);
             switch (abi) {
+                case "arm":
                 case "arm64":
                     abi = "arm64-v8a";
                     break;
                 case "armeabi":
+                case "armeabi-v7a":
                     abi = "armeabi-v7a";
                     break;
                 case "x86_64":
@@ -61,6 +63,7 @@ public class StubApplication extends Application {
                     break;
             }
             LogUtil.info("当前手机的 abi：" + abi);
+            // TODO:当 apk 中没有 so 文件，或者 abi 与存在的 so 不匹配时
             Utils.removeNativeLibraries(getApplicationInfo().sourceDir, abi,
                     base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath());
         }
