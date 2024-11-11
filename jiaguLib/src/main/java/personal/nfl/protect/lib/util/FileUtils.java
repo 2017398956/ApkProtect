@@ -5,6 +5,8 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 
@@ -50,6 +52,23 @@ public class FileUtils {
             return false;
         }
         return true;
+    }
+
+    public static String readFile(InputStream inputStream) {
+        InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+        BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+        try {
+            return bufferedReader.readLine();
+        } catch (IOException ignored) {
+        } finally {
+            try {
+                inputStream.close();
+                inputStreamReader.close();
+                bufferedReader.close();
+            } catch (IOException ignored) {
+            }
+        }
+        return null;
     }
 
 
@@ -99,7 +118,7 @@ public class FileUtils {
             while ((line = reader.readLine()) != null) {
                 if (line.contains("android:minSdkVersion")) {
                     try {
-                        minSdkVersion = Integer.parseInt(line.substring(line.length() - 2),16);
+                        minSdkVersion = Integer.parseInt(line.substring(line.length() - 2), 16);
                     } catch (Exception ignored) {
                     }
                     break;

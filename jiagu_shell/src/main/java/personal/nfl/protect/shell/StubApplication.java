@@ -2,6 +2,7 @@ package personal.nfl.protect.shell;
 
 import android.app.Application;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -10,9 +11,18 @@ import android.content.res.Resources;
 import android.os.Bundle;
 import android.util.Log;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 
 import personal.nfl.protect.shell.dex.LoadDexUtil;
+import personal.nfl.protect.shell.entity.AbiFileBean;
 import personal.nfl.protect.shell.util.AESUtil;
 import personal.nfl.protect.shell.util.LogUtil;
 import personal.nfl.protect.shell.util.Utils;
@@ -20,7 +30,9 @@ import personal.nfl.protect.shell.util.Utils;
 public class StubApplication extends Application {
 
     private static final String APP_KEY = "APPLICATION_CLASS_NAME";
-
+    private static final String SP_SHELL_DEX = "shell_dex";
+    private static final String SO_VERSION = "so_version_code";
+    private static final String SO_VERSION_NAME = "so_version_name";
     private Application app;
 
     public StubApplication() {
@@ -32,40 +44,92 @@ public class StubApplication extends Application {
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
         // me.weishu.reflection.Reflection.unseal(base);
-        String sha1 = "APkSHA1";
+        String sha1 = null;
+        try {
+            sha1 = Utils.readFirstLineInFile(getAssets().open("apk_protect/sha1.bin")).toUpperCase();
+        } catch (IOException ignored) {
+        }
         String apkSHA1 = Utils.getPackageSignSHA1(base);
-        if (!sha1.replace(":", "").equals(apkSHA1)) {
+        if (sha1 != null && !sha1.replace(":", "").equals(apkSHA1)) {
             // TODO: crash
         }
-        LogUtil.debug("app 签名：" + apkSHA1);
+        LogUtil.debug("app 原签名：" + sha1);
+        LogUtil.debug("app 新签名：" + apkSHA1);
         File newNativeLibraryDir = base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE);
-        if (!new File(newNativeLibraryDir.getAbsolutePath(), AESUtil.JIA_GU_NATIVE_LIBRARY).exists()) {
+        SharedPreferences sharedPreferences = getSharedPreferences(SP_SHELL_DEX, MODE_PRIVATE);
+        int soVersionCode = sharedPreferences.getInt(SO_VERSION, 0);
+        String soVersionName = sharedPreferences.getString(SO_VERSION_NAME, "");
+        if (!new File(newNativeLibraryDir.getAbsolutePath(), AESUtil.JIA_GU_NATIVE_LIBRARY).exists() || (
+                soVersionCode != getAppVersionCode() || !soVersionName.equals(getPackageInfo().versionName)
+                )) {
+            AbiFileBean abiFileBean = new AbiFileBean();
+            JSONObject allSoInfo = null;
+            try {
+                String soInfo = Utils.readFirstLineInFile(getAssets().open("apk_protect/so_info.bin"));
+                allSoInfo = new JSONObject(soInfo);
+                String[] abis = new String[]{"arm64-v8a", "armeabi-v7a", "x86_64", "x86"};
+                List<HashMap<String, String>> allHashMap = new ArrayList<>();
+                allHashMap.add(abiFileBean.arm64_v8a);
+                allHashMap.add(abiFileBean.armeabi_v7a);
+                allHashMap.add(abiFileBean.x86_64);
+                allHashMap.add(abiFileBean.x86);
+                for (int i = 0; i < abis.length; i++) {
+                    JSONObject temp = (JSONObject) allSoInfo.get(abis[i]);
+                    Iterator<String> keys = temp.keys();
+                    String key;
+                    while (keys.hasNext()) {
+                        key = keys.next();
+                        allHashMap.get(i).put(key, temp.getString(key));
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+
             String nativeLibraryDir = getApplicationInfo().nativeLibraryDir;
+            File temp = new File(nativeLibraryDir);
+            File[] soList = temp.listFiles();
+            for (File file : soList) {
+                LogUtil.debug("soFile:" + file.getAbsolutePath());
+            }
+            HashMap<String, String> soResult = new HashMap<>();
             String abi = nativeLibraryDir.substring(nativeLibraryDir.lastIndexOf("/") + 1);
             LogUtil.info("获取到的 abi 裁剪路径：" + abi);
             switch (abi) {
-                case "arm":
-                case "arm64":
-                    abi = "arm64-v8a";
-                    break;
                 case "armeabi":
                 case "armeabi-v7a":
                     abi = "armeabi-v7a";
+                    soResult.putAll(abiFileBean.x86_64);
+                    soResult.putAll(abiFileBean.x86);
+                    soResult.putAll(abiFileBean.arm64_v8a);
+                    soResult.putAll(abiFileBean.armeabi_v7a);
                     break;
                 case "x86_64":
                     abi = "x86_64";
+                    soResult.putAll(abiFileBean.armeabi_v7a);
+                    soResult.putAll(abiFileBean.arm64_v8a);
+                    soResult.putAll(abiFileBean.x86);
+                    soResult.putAll(abiFileBean.x86_64);
                     break;
                 case "x86":
                     abi = "x86";
+                    soResult.putAll(abiFileBean.arm64_v8a);
+                    soResult.putAll(abiFileBean.armeabi_v7a);
+                    soResult.putAll(abiFileBean.x86_64);
+                    soResult.putAll(abiFileBean.x86);
                     break;
-                default:
+                default: // "arm": "arm64":
                     abi = "arm64-v8a";
+                    soResult.putAll(abiFileBean.x86);
+                    soResult.putAll(abiFileBean.x86_64);
+                    soResult.putAll(abiFileBean.armeabi_v7a);
+                    soResult.putAll(abiFileBean.arm64_v8a);
                     break;
             }
+
             LogUtil.info("当前手机的 abi：" + abi);
             // TODO:当 apk 中没有 so 文件，或者 abi 与存在的 so 不匹配时
             Utils.removeNativeLibraries(getApplicationInfo().sourceDir, abi,
-                    base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath());
+                    base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), soResult);
         }
         LogUtil.debug("nativeLibraryDir:" + getApplicationInfo().nativeLibraryDir);
         File oldJiaguNativeLibrary = new File(getApplicationInfo().nativeLibraryDir, AESUtil.JIA_GU_NATIVE_LIBRARY);

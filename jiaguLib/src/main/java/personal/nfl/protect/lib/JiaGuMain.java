@@ -4,6 +4,7 @@ import com.reandroid.app.AndroidManifest;
 import com.reandroid.arsc.chunk.xml.AndroidManifestBlock;
 import com.reandroid.arsc.chunk.xml.ResXmlAttribute;
 import com.reandroid.arsc.chunk.xml.ResXmlElement;
+import com.reandroid.json.JSONObject;
 import com.reandroid.utils.StringsUtil;
 
 import net.lingala.zip4j.ZipFile;
@@ -29,6 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -43,6 +45,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import personal.nfl.protect.lib.entity.AbiFileBean;
 import personal.nfl.protect.lib.entity.ArgsBean;
 import personal.nfl.protect.lib.util.AESUtil;
 import personal.nfl.protect.lib.util.FileUtils;
@@ -58,6 +61,8 @@ public class JiaGuMain {
     private static String OUT_TMP = ROOT + "temp/";
     private static String ORIGIN_APK = "demo/release/demo-release.apk";
     private ArgsBean argsBean = new ArgsBean();
+    private AbiFileBean abiFileBean;
+    private String apkSha1;
 
     /**
      * 是否发布为Jar包，运行的
@@ -87,7 +92,8 @@ public class JiaGuMain {
             throw new RuntimeException("--apk_file is not a apk file.");
         }
         ORIGIN_APK = jiaguMain.argsBean.apkFile;
-        System.out.println("apk sha1:" + getApkSHA1(ORIGIN_APK));
+        jiaguMain.apkSha1 = getApkSHA1(ORIGIN_APK);
+        System.out.println("apk sha1:" + jiaguMain.apkSha1);
         if (!isRelease) {
             ROOT = "jiaguLib/";
             OUT_TMP = ROOT + "temp/";
@@ -205,6 +211,46 @@ public class JiaGuMain {
         return classesDex;
     }
 
+    private AbiFileBean getMergedSoPath(String apkUnzipAbsolutePath) {
+        // so name | so path
+        AbiFileBean abiFileBean = new AbiFileBean();
+        File libDir = new File(apkUnzipAbsolutePath, "lib");
+        File[] abiList = libDir.listFiles();
+        if (abiList == null) {
+            return abiFileBean;
+        }
+        File[] soList;
+        HashMap<String, String> temp = null;
+        for (File abiDir : abiList) {
+            switch (abiDir.getName()) {
+                case "arm64-v8a":
+                    temp = abiFileBean.arm64_v8a;
+                    break;
+                case "armeabi-v7a":
+                    temp = abiFileBean.arm64_v8a;
+                    break;
+                case "x86_64":
+                    temp = abiFileBean.x86_64;
+                    break;
+                case "x86":
+                    temp = abiFileBean.x86;
+                    break;
+            }
+            if (temp != null) {
+                soList = abiDir.listFiles();
+                if (soList != null) {
+                    for (File soFile : soList) {
+                        temp.put(soFile.getName(),
+                                soFile.getAbsolutePath()
+                                        .replace(apkUnzipAbsolutePath + File.separator, "")
+                                        .replace("\\", "/"));
+                    }
+                }
+            }
+        }
+        return abiFileBean;
+    }
+
     /**
      * 步骤二: 将需要加固的APK解压，并将所有dex文件打包成一个zip包，方便后续进行加密处理
      *
@@ -218,12 +264,10 @@ public class JiaGuMain {
         try {
             //首先把apk解压出来
             ZipUtil.unZip(apkFile, apkTemp);
-
+            abiFileBean = getMergedSoPath(apkTemp.getAbsolutePath());
             //其次获取解压目录中的dex文件
             File[] dexFiles = apkTemp.listFiles((file, s) -> s.endsWith(".dex"));
-
             if (dexFiles == null) return null;
-
             //三: 将所有的dex文件压缩为AppDex.zip文件
             File outTmpFile = new File(OUT_TMP);
             File outputFile = new File(outTmpFile, "AppDex.zip");
@@ -304,7 +348,7 @@ public class JiaGuMain {
             localFileOutputStream.close();
             System.out.println("Has created new dex file to " + str);
             //删除dex的zip包
-            FileUtils.deleteFile(originalDexZipFile.getAbsolutePath());
+//            FileUtils.deleteFile(originalDexZipFile.getAbsolutePath());
             return file;
         } catch (Exception e) {
             throw new RuntimeException(e.getLocalizedMessage());
@@ -457,6 +501,19 @@ public class JiaGuMain {
         logTitle("Fifth: replace the apk's dex files by the new dex file.");
         try {
             Zip4jUtil.deleteDexFromZip(zipPath);
+            // 添加一些辅助文件
+            File newDexParentDir = new File(newDexPath).getParentFile();
+            // 动态库信息
+            String soInfoPath = newDexParentDir + File.separator + "so_info.bin";
+            FileUtils.writeFile(abiFileBean.toJsonString(), soInfoPath);
+            Zip4jUtil.addFile2Zip(zipPath, soInfoPath, "assets/apk_protect");
+            FileUtils.deleteFile(soInfoPath);
+            // apk sha1 信息
+            String apkSha1Path = newDexParentDir + File.separator + "sha1.bin";
+            FileUtils.writeFile(apkSha1, apkSha1Path);
+            Zip4jUtil.addFile2Zip(zipPath, apkSha1Path, "assets/apk_protect");
+            FileUtils.deleteFile(apkSha1Path);
+            // 添加新的 dex
             Zip4jUtil.addFile2Zip(zipPath, newDexPath, "assets/apk_protect");
             Zip4jUtil.addFile2Zip(zipPath, shellDexFile, "");
             //将加固的 so文件添加到apk的lib中

@@ -10,6 +10,7 @@ import android.os.Build;
 import personal.nfl.protect.shell.Configs;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -18,12 +19,15 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -94,7 +98,7 @@ public class Utils {
         return dexByteArrayOutputStream.toByteArray();
     }
 
-    public static String removeNativeLibraries(String apkPath, String abi, String newNativeLibraryPath) {
+    public static String removeNativeLibraries(String apkPath, String abi, String newNativeLibraryPath, HashMap<String, String> soResult) {
         try {
             //获取当前zip进行解压
             ZipInputStream zipInputStream = new ZipInputStream(
@@ -105,6 +109,7 @@ public class Utils {
                     zipInputStream.close();
                     break;
                 }
+                // TODO: 根据 soResult 复制文件
                 if (entry.getName().startsWith("lib/" + abi + "/") && entry.getName().endsWith(".so")) {
                     File file = new File(newNativeLibraryPath, entry.getName().replace("lib/" + abi + "/", ""));
                     if (!file.getParentFile().exists()) {
@@ -138,6 +143,7 @@ public class Utils {
         ArrayList<File> nativeLibraryDirectories = (ArrayList<File>) RefInvoke.getField("dalvik.system.DexPathList", dexPathList, "nativeLibraryDirectories");
         if (nativeLibraryDirectories != null) {
             for (int i = 0; i < nativeLibraryDirectories.size(); i++) {
+                LogUtil.debug("nativePath:" + nativeLibraryDirectories.get(i).getAbsolutePath());
                 if (nativeLibraryDirectories.get(i).getAbsolutePath().equals(oldNativeLibraryPath)) {
                     nativeLibraryDirectories.set(i, new File(newNativeLibraryPath));
                     return true;
@@ -324,6 +330,23 @@ public class Utils {
             }
         }
         return signStr;
+    }
+
+    public static String readFirstLineInFile(InputStream inputStream) {
+        InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+        BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+        try {
+            return bufferedReader.readLine();
+        } catch (IOException ignored) {
+        } finally {
+            try {
+                inputStream.close();
+                inputStreamReader.close();
+                bufferedReader.close();
+            } catch (IOException ignored) {
+            }
+        }
+        return null;
     }
 
 }
