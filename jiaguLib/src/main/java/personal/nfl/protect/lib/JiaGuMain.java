@@ -524,6 +524,13 @@ public class JiaGuMain {
                 Zip4jUtil.addFile2Zip(zipPath, apkSha1Path, "assets/apk_protect");
                 FileUtils.deleteFile(apkSha1Path);
             }
+            // apk sha1 信息
+            if (!argsBean.debuggable) {
+                String apkSha1Path = newDexParentDir + File.separator + "debuggable.bin";
+                FileUtils.writeFile("false", apkSha1Path);
+                Zip4jUtil.addFile2Zip(zipPath, apkSha1Path, "assets/apk_protect");
+                FileUtils.deleteFile(apkSha1Path);
+            }
             // 添加新的 dex
             Zip4jUtil.addFile2Zip(zipPath, newDexPath, "assets/apk_protect");
             Zip4jUtil.addFile2Zip(zipPath, shellDexFile, "");

@@ -10,6 +10,7 @@ import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Handler;
+import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -25,6 +26,7 @@ import java.util.List;
 import personal.nfl.protect.shell.dex.LoadDexUtil;
 import personal.nfl.protect.shell.entity.AbiFileBean;
 import personal.nfl.protect.shell.util.AESUtil;
+import personal.nfl.protect.shell.util.DebuggerUtils;
 import personal.nfl.protect.shell.util.LogUtil;
 import personal.nfl.protect.shell.util.Utils;
 
@@ -35,16 +37,14 @@ public class StubApplication extends Application {
     private static final String SO_VERSION = "so_version_code";
     private static final String SO_VERSION_NAME = "so_version_name";
     private Application app;
+    private String abi;
 
     public StubApplication() {
         super();
         LogUtil.debug("StubApplication created.");
     }
 
-    @Override
-    protected void attachBaseContext(Context base) {
-        super.attachBaseContext(base);
-        // me.weishu.reflection.Reflection.unseal(base);
+    private void checkSha1(Context base) {
         String sha1 = null;
         try {
             sha1 = Utils.readFirstLineInFile(getAssets().open("apk_protect/sha1.bin")).toUpperCase();
@@ -59,76 +59,105 @@ public class StubApplication extends Application {
         }
         LogUtil.debug("app 原签名：" + sha1);
         LogUtil.debug("app 新签名：" + apkSHA1);
+    }
+
+    private HashMap<String, String> getSoResult() {
+        AbiFileBean abiFileBean = new AbiFileBean();
+        JSONObject allSoInfo = null;
+        try {
+            String soInfo = Utils.readFirstLineInFile(getAssets().open("apk_protect/so_info.bin"));
+            allSoInfo = new JSONObject(soInfo);
+            String[] abis = new String[]{"arm64_v8a", "armeabi_v7a", "x86_64", "x86"};
+            List<HashMap<String, String>> allHashMap = new ArrayList<>();
+            allHashMap.add(abiFileBean.arm64_v8a);
+            allHashMap.add(abiFileBean.armeabi_v7a);
+            allHashMap.add(abiFileBean.x86_64);
+            allHashMap.add(abiFileBean.x86);
+            for (int i = 0; i < abis.length; i++) {
+                JSONObject temp = (JSONObject) allSoInfo.get(abis[i]);
+                Iterator<String> keys = temp.keys();
+                String key;
+                while (keys.hasNext()) {
+                    key = keys.next();
+                    allHashMap.get(i).put(key, temp.getString(key));
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        String nativeLibraryDir = getApplicationInfo().nativeLibraryDir;
+        // so name | so path
+        HashMap<String, String> soResult = new HashMap<>();
+        abi = nativeLibraryDir.substring(nativeLibraryDir.lastIndexOf("/") + 1);
+        LogUtil.info("获取到的 abi 裁剪路径：" + abi);
+        switch (abi) {
+            case "armeabi":
+            case "armeabi-v7a":
+                abi = "armeabi-v7a";
+                soResult.putAll(abiFileBean.x86_64);
+                soResult.putAll(abiFileBean.x86);
+                soResult.putAll(abiFileBean.arm64_v8a);
+                soResult.putAll(abiFileBean.armeabi_v7a);
+                break;
+            case "x86_64":
+                abi = "x86_64";
+                soResult.putAll(abiFileBean.armeabi_v7a);
+                soResult.putAll(abiFileBean.arm64_v8a);
+                soResult.putAll(abiFileBean.x86);
+                soResult.putAll(abiFileBean.x86_64);
+                break;
+            case "x86":
+                abi = "x86";
+                soResult.putAll(abiFileBean.arm64_v8a);
+                soResult.putAll(abiFileBean.armeabi_v7a);
+                soResult.putAll(abiFileBean.x86_64);
+                soResult.putAll(abiFileBean.x86);
+                break;
+            default: // "arm": "arm64":
+                abi = "arm64-v8a";
+                soResult.putAll(abiFileBean.x86);
+                soResult.putAll(abiFileBean.x86_64);
+                soResult.putAll(abiFileBean.armeabi_v7a);
+                soResult.putAll(abiFileBean.arm64_v8a);
+                break;
+        }
+        LogUtil.info("当前手机的 abi：" + abi);
+        return soResult;
+    }
+
+    private void checkDebug(Context context, HashMap<String, String> soResult) {
+        try {
+            if (!TextUtils.isEmpty(Utils.readFirstLineInFile(getAssets().open("apk_protect/debuggable.bin")))){
+                DebuggerUtils.checkDebuggableInNotDebugModel(context, false, soResult, () -> {
+                    Toast.makeText(context, "Can't run on debug.", Toast.LENGTH_LONG).show();
+                    new Handler().postDelayed(() -> {
+                        throw new RuntimeException("Can't run on debug.");
+                    }, 2000);
+                    return true;
+                });
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(base);
+        // me.weishu.reflection.Reflection.unseal(base);
+        checkSha1(base);
         File newNativeLibraryDir = base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE);
         SharedPreferences sharedPreferences = getSharedPreferences(SP_SHELL_DEX, MODE_PRIVATE);
         int soVersionCode = sharedPreferences.getInt(SO_VERSION, 0);
         String soVersionName = sharedPreferences.getString(SO_VERSION_NAME, "");
+        HashMap<String, String> soResult = getSoResult();
         if (!new File(newNativeLibraryDir.getAbsolutePath(), AESUtil.JIA_GU_NATIVE_LIBRARY).exists()
                 || (soVersionCode != getAppVersionCode() || !soVersionName.equals(getPackageInfo().versionName))) {
-            AbiFileBean abiFileBean = new AbiFileBean();
-            JSONObject allSoInfo = null;
-            try {
-                String soInfo = Utils.readFirstLineInFile(getAssets().open("apk_protect/so_info.bin"));
-                allSoInfo = new JSONObject(soInfo);
-                String[] abis = new String[]{"arm64_v8a", "armeabi_v7a", "x86_64", "x86"};
-                List<HashMap<String, String>> allHashMap = new ArrayList<>();
-                allHashMap.add(abiFileBean.arm64_v8a);
-                allHashMap.add(abiFileBean.armeabi_v7a);
-                allHashMap.add(abiFileBean.x86_64);
-                allHashMap.add(abiFileBean.x86);
-                for (int i = 0; i < abis.length; i++) {
-                    JSONObject temp = (JSONObject) allSoInfo.get(abis[i]);
-                    Iterator<String> keys = temp.keys();
-                    String key;
-                    while (keys.hasNext()) {
-                        key = keys.next();
-                        allHashMap.get(i).put(key, temp.getString(key));
-                    }
-                }
-            } catch (Exception ignored) {
-            }
-            String nativeLibraryDir = getApplicationInfo().nativeLibraryDir;
-            // so name | so path
-            HashMap<String, String> soResult = new HashMap<>();
-            String abi = nativeLibraryDir.substring(nativeLibraryDir.lastIndexOf("/") + 1);
-            LogUtil.info("获取到的 abi 裁剪路径：" + abi);
-            switch (abi) {
-                case "armeabi":
-                case "armeabi-v7a":
-                    abi = "armeabi-v7a";
-                    soResult.putAll(abiFileBean.x86_64);
-                    soResult.putAll(abiFileBean.x86);
-                    soResult.putAll(abiFileBean.arm64_v8a);
-                    soResult.putAll(abiFileBean.armeabi_v7a);
-                    break;
-                case "x86_64":
-                    abi = "x86_64";
-                    soResult.putAll(abiFileBean.armeabi_v7a);
-                    soResult.putAll(abiFileBean.arm64_v8a);
-                    soResult.putAll(abiFileBean.x86);
-                    soResult.putAll(abiFileBean.x86_64);
-                    break;
-                case "x86":
-                    abi = "x86";
-                    soResult.putAll(abiFileBean.arm64_v8a);
-                    soResult.putAll(abiFileBean.armeabi_v7a);
-                    soResult.putAll(abiFileBean.x86_64);
-                    soResult.putAll(abiFileBean.x86);
-                    break;
-                default: // "arm": "arm64":
-                    abi = "arm64-v8a";
-                    soResult.putAll(abiFileBean.x86);
-                    soResult.putAll(abiFileBean.x86_64);
-                    soResult.putAll(abiFileBean.armeabi_v7a);
-                    soResult.putAll(abiFileBean.arm64_v8a);
-                    break;
-            }
-            LogUtil.info("当前手机的 abi：" + abi);
             Utils.removeNativeLibraries(getApplicationInfo().sourceDir, abi,
                     base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), soResult);
             LogUtil.debug("so list:" + new JSONObject(soResult));
             sharedPreferences.edit().putInt(SO_VERSION, getAppVersionCode()).putString(SO_VERSION_NAME, getPackageInfo().versionName).commit();
         }
+        checkDebug(base, soResult);
         LogUtil.debug("nativeLibraryDir:" + getApplicationInfo().nativeLibraryDir);
         File oldJiaguNativeLibrary = new File(getApplicationInfo().nativeLibraryDir, AESUtil.JIA_GU_NATIVE_LIBRARY);
         LogUtil.info("libsxjiagu.so exists? " + oldJiaguNativeLibrary.exists());

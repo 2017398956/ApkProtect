@@ -11,6 +11,8 @@ public class ArgsBean {
 
     @Option(name = "--resign")
     public boolean canResign = false;
+    @Option(name = "--debuggable")
+    public boolean debuggable = false;
     @Option(name = "--apk_file")
     public String apkFile;
     @Option(name = "--keystore_cfg")
