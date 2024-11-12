@@ -4,7 +4,6 @@ import com.reandroid.app.AndroidManifest;
 import com.reandroid.arsc.chunk.xml.AndroidManifestBlock;
 import com.reandroid.arsc.chunk.xml.ResXmlAttribute;
 import com.reandroid.arsc.chunk.xml.ResXmlElement;
-import com.reandroid.json.JSONObject;
 import com.reandroid.utils.StringsUtil;
 
 import net.lingala.zip4j.ZipFile;
@@ -63,6 +62,7 @@ public class JiaGuMain {
     private ArgsBean argsBean = new ArgsBean();
     private AbiFileBean abiFileBean;
     private String apkSha1;
+    private String[] shellNativeLibraryNames = new String[]{"libsxjiagu.so", "libShellDex2.so"};
 
     /**
      * 是否发布为Jar包，运行的
@@ -76,6 +76,11 @@ public class JiaGuMain {
         System.load(strDll);//这是我即将要重新实现的动态库名字
     }
 
+    public static void showHelp(CmdLineParser parser){
+        System.out.println("参数说明 [options ...] [arguments...]");
+        parser.printUsage(System.out);
+    }
+
     /**
      * @param args
      */
@@ -86,6 +91,7 @@ public class JiaGuMain {
         try {
             cmdLineParser.parseArgument(args);
         } catch (CmdLineException e) {
+            // showHelp(cmdLineParser);
             throw new RuntimeException(e.getLocalizedMessage());
         }
         if (jiaguMain.argsBean.apkFile == null || !jiaguMain.argsBean.apkFile.endsWith(".apk")) {
@@ -227,7 +233,7 @@ public class JiaGuMain {
                     temp = abiFileBean.arm64_v8a;
                     break;
                 case "armeabi-v7a":
-                    temp = abiFileBean.arm64_v8a;
+                    temp = abiFileBean.armeabi_v7a;
                     break;
                 case "x86_64":
                     temp = abiFileBean.x86_64;
@@ -245,6 +251,9 @@ public class JiaGuMain {
                                         .replace(apkUnzipAbsolutePath + File.separator, "")
                                         .replace("\\", "/"));
                     }
+                }
+                for (String shellSoName : shellNativeLibraryNames) {
+                    temp.put(shellSoName, "lib/" + abiDir.getName() + "/" + shellSoName);
                 }
             }
         }
@@ -509,10 +518,12 @@ public class JiaGuMain {
             Zip4jUtil.addFile2Zip(zipPath, soInfoPath, "assets/apk_protect");
             FileUtils.deleteFile(soInfoPath);
             // apk sha1 信息
-            String apkSha1Path = newDexParentDir + File.separator + "sha1.bin";
-            FileUtils.writeFile(apkSha1, apkSha1Path);
-            Zip4jUtil.addFile2Zip(zipPath, apkSha1Path, "assets/apk_protect");
-            FileUtils.deleteFile(apkSha1Path);
+            if (!argsBean.canResign) {
+                String apkSha1Path = newDexParentDir + File.separator + "sha1.bin";
+                FileUtils.writeFile(apkSha1, apkSha1Path);
+                Zip4jUtil.addFile2Zip(zipPath, apkSha1Path, "assets/apk_protect");
+                FileUtils.deleteFile(apkSha1Path);
+            }
             // 添加新的 dex
             Zip4jUtil.addFile2Zip(zipPath, newDexPath, "assets/apk_protect");
             Zip4jUtil.addFile2Zip(zipPath, shellDexFile, "");
@@ -531,8 +542,7 @@ public class JiaGuMain {
                     boolArm[2] = true;
                 }
             });
-            String[] nativeLibraryNames = new String[]{"libsxjiagu.so", "libShellDex2.so"};
-            for (String name : nativeLibraryNames) {
+            for (String name : shellNativeLibraryNames) {
                 if (!boolArm[0] && !boolArm[1] && !boolArm[2] && !boolArm[3]) {
                     Zip4jUtil.addFile2Zip(zipPath, OUT_TMP + "shell/lib/armeabi-v7a/" + name, "lib/armeabi-v7a/");
                 } else {

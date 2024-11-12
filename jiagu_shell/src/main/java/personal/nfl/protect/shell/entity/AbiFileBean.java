@@ -3,6 +3,7 @@ package personal.nfl.protect.shell.entity;
 import java.util.HashMap;
 
 public class AbiFileBean {
+    // so name | so path
     public HashMap<String, String> arm64_v8a = new HashMap<>();
     public HashMap<String, String> armeabi_v7a = new HashMap<>();
     public HashMap<String, String> x86_64 = new HashMap<>();

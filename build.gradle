@@ -293,7 +293,7 @@ task excJiagu(type: Exec) {
     workingDir new File(projectDir, "jiagu")
     if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
         environment["Path"] = getAaptPath() + ";" + environment["Path"]
-        commandLine "cmd", "/K", "java", "-jar", "jiaguLib.jar", "--apk_file", unJiaguApkName, "--keystore_cfg", "keystore.cfg"
+        commandLine "cmd", "/K", "java", "-jar", "jiaguLib.jar", "--apk_file", unJiaguApkName, "--keystore_cfg", "keystore.cfg", "--resign"
     } else {
         environment["Path"] = getAaptPath() + ":" + environment["Path"]
         commandLine "cmd", "-c", "java", "-jar", "jiaguLib.jar", "--apk_file", unJiaguApkName, "--keystore_cfg", "keystore.cfg"

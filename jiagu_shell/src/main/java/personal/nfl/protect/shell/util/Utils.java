@@ -7,8 +7,6 @@ import android.content.pm.Signature;
 import android.content.pm.SigningInfo;
 import android.os.Build;
 
-import personal.nfl.protect.shell.Configs;
-
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -27,12 +25,12 @@ import java.nio.channels.FileChannel;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import dalvik.system.BaseDexClassLoader;
+import personal.nfl.protect.shell.Configs;
 
 public class Utils {
 
@@ -103,29 +101,40 @@ public class Utils {
             //获取当前zip进行解压
             ZipInputStream zipInputStream = new ZipInputStream(
                     new BufferedInputStream(new FileInputStream(apkPath)));
+            String entryName;
+            String entryPath;
+            String[] entryPathSplit;
+            String exceptPath;
             while (true) {
                 ZipEntry entry = zipInputStream.getNextEntry();
                 if (entry == null) {
                     zipInputStream.close();
                     break;
                 }
-                // TODO: 根据 soResult 复制文件
-                if (entry.getName().startsWith("lib/" + abi + "/") && entry.getName().endsWith(".so")) {
-                    File file = new File(newNativeLibraryPath, entry.getName().replace("lib/" + abi + "/", ""));
-                    if (!file.getParentFile().exists()) {
-                        file.getParentFile().mkdirs();
-                    }
-                    if (file.createNewFile()) {
-                        FileOutputStream fileOutputStream = new FileOutputStream(file);
-                        LogUtil.info("copy native library:" + file.getAbsolutePath());
-                        byte[] arrayOfByte = new byte[1024];
-                        while (true) {
-                            int i = zipInputStream.read(arrayOfByte);
-                            if (i == -1)
-                                break;
-                            fileOutputStream.write(arrayOfByte, 0, i);
+                entryPath = entry.getName();
+                if (entryPath.startsWith("lib") && entryPath.endsWith(".so")) {
+                    entryPathSplit = entryPath.split("/");
+                    if (entryPathSplit.length == 3) {
+                        entryName = entryPathSplit[2];
+                        exceptPath = soResult.get(entryName);
+                        if (entryPath.equals(exceptPath)) {
+                            File file = new File(newNativeLibraryPath, entryName);
+                            if (!file.getParentFile().exists()) {
+                                file.getParentFile().mkdirs();
+                            }
+                            if (file.createNewFile()) {
+                                FileOutputStream fileOutputStream = new FileOutputStream(file);
+                                LogUtil.info("copy native library:" + file.getAbsolutePath());
+                                byte[] arrayOfByte = new byte[1024];
+                                while (true) {
+                                    int i = zipInputStream.read(arrayOfByte);
+                                    if (i == -1)
+                                        break;
+                                    fileOutputStream.write(arrayOfByte, 0, i);
+                                }
+                                fileOutputStream.close();
+                            }
                         }
-                        fileOutputStream.close();
                     }
                 }
                 zipInputStream.closeEntry();
