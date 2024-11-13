@@ -24,7 +24,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import personal.nfl.protect.shell.dex.LoadDexUtil;
-import personal.nfl.protect.shell.entity.AbiFileBean;
+import personal.nfl.protect.shell.entity.ShellConfigsBean;
 import personal.nfl.protect.shell.util.AESUtil;
 import personal.nfl.protect.shell.util.DebuggerUtils;
 import personal.nfl.protect.shell.util.LogUtil;
@@ -38,6 +38,7 @@ public class StubApplication extends Application {
     private static final String SO_VERSION_NAME = "so_version_name";
     private Application app;
     private String abi;
+    private final ShellConfigsBean shellConfigsBean = new ShellConfigsBean();
 
     public StubApplication() {
         super();
@@ -45,36 +46,33 @@ public class StubApplication extends Application {
     }
 
     private void checkSha1(Context base) {
-        String sha1 = null;
-        try {
-            sha1 = Utils.readFirstLineInFile(getAssets().open("apk_protect/sha1.bin")).toUpperCase();
-        } catch (IOException ignored) {
+        if (!shellConfigsBean.canResign) {
+            String sha1 = shellConfigsBean.sha1;
+            String apkSHA1 = Utils.getPackageSignSHA1(base);
+            if (sha1 != null && !sha1.replace(":", "").equals(apkSHA1)) {
+                Toast.makeText(base, "This is not an official app", Toast.LENGTH_LONG).show();
+                new Handler().postDelayed(() -> {
+                    throw new RuntimeException("This is not an official app");
+                }, 2000);
+            }
+            LogUtil.debug("app 原签名：" + sha1);
+            LogUtil.debug("app 新签名：" + apkSHA1);
         }
-        String apkSHA1 = Utils.getPackageSignSHA1(base);
-        if (sha1 != null && !sha1.replace(":", "").equals(apkSHA1)) {
-            Toast.makeText(base, "This is not an official app", Toast.LENGTH_LONG).show();
-            new Handler().postDelayed(() -> {
-                throw new RuntimeException("This is not an official app");
-            }, 2000);
-        }
-        LogUtil.debug("app 原签名：" + sha1);
-        LogUtil.debug("app 新签名：" + apkSHA1);
     }
 
-    private HashMap<String, String> getSoResult() {
-        AbiFileBean abiFileBean = new AbiFileBean();
-        JSONObject allSoInfo = null;
+    private void parseShellConfigs() {
+        JSONObject shellConfigsObj = null;
         try {
-            String soInfo = Utils.readFirstLineInFile(getAssets().open("apk_protect/so_info.bin"));
-            allSoInfo = new JSONObject(soInfo);
+            String shellConfigsStr = Utils.readFirstLineInFile(getAssets().open("apk_protect/shell_configs.bin"));
+            shellConfigsObj = new JSONObject(shellConfigsStr);
             String[] abis = new String[]{"arm64_v8a", "armeabi_v7a", "x86_64", "x86"};
             List<HashMap<String, String>> allHashMap = new ArrayList<>();
-            allHashMap.add(abiFileBean.arm64_v8a);
-            allHashMap.add(abiFileBean.armeabi_v7a);
-            allHashMap.add(abiFileBean.x86_64);
-            allHashMap.add(abiFileBean.x86);
+            allHashMap.add(shellConfigsBean.arm64_v8a);
+            allHashMap.add(shellConfigsBean.armeabi_v7a);
+            allHashMap.add(shellConfigsBean.x86_64);
+            allHashMap.add(shellConfigsBean.x86);
             for (int i = 0; i < abis.length; i++) {
-                JSONObject temp = (JSONObject) allSoInfo.get(abis[i]);
+                JSONObject temp = (JSONObject) shellConfigsObj.get(abis[i]);
                 Iterator<String> keys = temp.keys();
                 String key;
                 while (keys.hasNext()) {
@@ -82,61 +80,59 @@ public class StubApplication extends Application {
                     allHashMap.get(i).put(key, temp.getString(key));
                 }
             }
+            shellConfigsBean.canResign = shellConfigsObj.optBoolean("canResign", false);
+            shellConfigsBean.debuggable = shellConfigsObj.optBoolean("debuggable", false);
+            shellConfigsBean.sha1 = shellConfigsObj.getString("sha1");
         } catch (Exception ignored) {
         }
         String nativeLibraryDir = getApplicationInfo().nativeLibraryDir;
         // so name | so path
-        HashMap<String, String> soResult = new HashMap<>();
+        HashMap<String, String> soResult = shellConfigsBean.soResult;
         abi = nativeLibraryDir.substring(nativeLibraryDir.lastIndexOf("/") + 1);
         LogUtil.info("获取到的 abi 裁剪路径：" + abi);
         switch (abi) {
             case "armeabi":
             case "armeabi-v7a":
                 abi = "armeabi-v7a";
-                soResult.putAll(abiFileBean.x86_64);
-                soResult.putAll(abiFileBean.x86);
-                soResult.putAll(abiFileBean.arm64_v8a);
-                soResult.putAll(abiFileBean.armeabi_v7a);
+                soResult.putAll(shellConfigsBean.x86_64);
+                soResult.putAll(shellConfigsBean.x86);
+                soResult.putAll(shellConfigsBean.arm64_v8a);
+                soResult.putAll(shellConfigsBean.armeabi_v7a);
                 break;
             case "x86_64":
                 abi = "x86_64";
-                soResult.putAll(abiFileBean.armeabi_v7a);
-                soResult.putAll(abiFileBean.arm64_v8a);
-                soResult.putAll(abiFileBean.x86);
-                soResult.putAll(abiFileBean.x86_64);
+                soResult.putAll(shellConfigsBean.armeabi_v7a);
+                soResult.putAll(shellConfigsBean.arm64_v8a);
+                soResult.putAll(shellConfigsBean.x86);
+                soResult.putAll(shellConfigsBean.x86_64);
                 break;
             case "x86":
                 abi = "x86";
-                soResult.putAll(abiFileBean.arm64_v8a);
-                soResult.putAll(abiFileBean.armeabi_v7a);
-                soResult.putAll(abiFileBean.x86_64);
-                soResult.putAll(abiFileBean.x86);
+                soResult.putAll(shellConfigsBean.arm64_v8a);
+                soResult.putAll(shellConfigsBean.armeabi_v7a);
+                soResult.putAll(shellConfigsBean.x86_64);
+                soResult.putAll(shellConfigsBean.x86);
                 break;
             default: // "arm": "arm64":
                 abi = "arm64-v8a";
-                soResult.putAll(abiFileBean.x86);
-                soResult.putAll(abiFileBean.x86_64);
-                soResult.putAll(abiFileBean.armeabi_v7a);
-                soResult.putAll(abiFileBean.arm64_v8a);
+                soResult.putAll(shellConfigsBean.x86);
+                soResult.putAll(shellConfigsBean.x86_64);
+                soResult.putAll(shellConfigsBean.armeabi_v7a);
+                soResult.putAll(shellConfigsBean.arm64_v8a);
                 break;
         }
         LogUtil.info("当前手机的 abi：" + abi);
-        return soResult;
     }
 
     private void checkDebug(Context context, HashMap<String, String> soResult) {
-        try {
-            if (!TextUtils.isEmpty(Utils.readFirstLineInFile(getAssets().open("apk_protect/debuggable.bin")))){
-                DebuggerUtils.checkDebuggableInNotDebugModel(context, false, soResult, () -> {
-                    Toast.makeText(context, "Can't run on debug.", Toast.LENGTH_LONG).show();
-                    new Handler().postDelayed(() -> {
-                        throw new RuntimeException("Can't run on debug.");
-                    }, 2000);
-                    return true;
-                });
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        if (!shellConfigsBean.debuggable) {
+            DebuggerUtils.checkDebuggableInNotDebugModel(context, false, soResult, () -> {
+                Toast.makeText(context, "Can't run on debug.", Toast.LENGTH_LONG).show();
+                new Handler().postDelayed(() -> {
+                    throw new RuntimeException("Can't run on debug.");
+                }, 2000);
+                return true;
+            });
         }
     }
 
@@ -144,20 +140,20 @@ public class StubApplication extends Application {
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
         // me.weishu.reflection.Reflection.unseal(base);
+        parseShellConfigs();
         checkSha1(base);
+        checkDebug(base, shellConfigsBean.soResult);
         File newNativeLibraryDir = base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE);
         SharedPreferences sharedPreferences = getSharedPreferences(SP_SHELL_DEX, MODE_PRIVATE);
         int soVersionCode = sharedPreferences.getInt(SO_VERSION, 0);
         String soVersionName = sharedPreferences.getString(SO_VERSION_NAME, "");
-        HashMap<String, String> soResult = getSoResult();
         if (!new File(newNativeLibraryDir.getAbsolutePath(), AESUtil.JIA_GU_NATIVE_LIBRARY).exists()
                 || (soVersionCode != getAppVersionCode() || !soVersionName.equals(getPackageInfo().versionName))) {
             Utils.removeNativeLibraries(getApplicationInfo().sourceDir, abi,
-                    base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), soResult);
-            LogUtil.debug("so list:" + new JSONObject(soResult));
+                    base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), shellConfigsBean.soResult);
+            LogUtil.debug("so list:" + new JSONObject(shellConfigsBean.soResult));
             sharedPreferences.edit().putInt(SO_VERSION, getAppVersionCode()).putString(SO_VERSION_NAME, getPackageInfo().versionName).commit();
         }
-        checkDebug(base, soResult);
         LogUtil.debug("nativeLibraryDir:" + getApplicationInfo().nativeLibraryDir);
         File oldJiaguNativeLibrary = new File(getApplicationInfo().nativeLibraryDir, AESUtil.JIA_GU_NATIVE_LIBRARY);
         LogUtil.info("libsxjiagu.so exists? " + oldJiaguNativeLibrary.exists());

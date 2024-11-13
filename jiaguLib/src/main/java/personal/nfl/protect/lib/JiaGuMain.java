@@ -44,7 +44,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
-import personal.nfl.protect.lib.entity.AbiFileBean;
+import personal.nfl.protect.lib.entity.ShellConfigsBean;
 import personal.nfl.protect.lib.entity.ArgsBean;
 import personal.nfl.protect.lib.util.AESUtil;
 import personal.nfl.protect.lib.util.FileUtils;
@@ -60,7 +60,7 @@ public class JiaGuMain {
     private static String OUT_TMP = ROOT + "temp/";
     private static String ORIGIN_APK = "demo/release/demo-release.apk";
     private ArgsBean argsBean = new ArgsBean();
-    private AbiFileBean abiFileBean;
+    private ShellConfigsBean shellConfigsBean;
     private String apkSha1;
     private String[] shellNativeLibraryNames = new String[]{"libsxjiagu.so", "libShellDex2.so"};
 
@@ -217,9 +217,9 @@ public class JiaGuMain {
         return classesDex;
     }
 
-    private AbiFileBean getMergedSoPath(String apkUnzipAbsolutePath) {
+    private ShellConfigsBean getMergedSoPath(String apkUnzipAbsolutePath) {
         // so name | so path
-        AbiFileBean abiFileBean = new AbiFileBean();
+        ShellConfigsBean abiFileBean = new ShellConfigsBean();
         File libDir = new File(apkUnzipAbsolutePath, "lib");
         File[] abiList = libDir.listFiles();
         if (abiList == null) {
@@ -273,7 +273,7 @@ public class JiaGuMain {
         try {
             //首先把apk解压出来
             ZipUtil.unZip(apkFile, apkTemp);
-            abiFileBean = getMergedSoPath(apkTemp.getAbsolutePath());
+            shellConfigsBean = getMergedSoPath(apkTemp.getAbsolutePath());
             //其次获取解压目录中的dex文件
             File[] dexFiles = apkTemp.listFiles((file, s) -> s.endsWith(".dex"));
             if (dexFiles == null) return null;
@@ -513,24 +513,13 @@ public class JiaGuMain {
             // 添加一些辅助文件
             File newDexParentDir = new File(newDexPath).getParentFile();
             // 动态库信息
-            String soInfoPath = newDexParentDir + File.separator + "so_info.bin";
-            FileUtils.writeFile(abiFileBean.toJsonString(), soInfoPath);
+            String soInfoPath = newDexParentDir + File.separator + "shell_configs.bin";
+            shellConfigsBean.canResign = argsBean.canResign;
+            shellConfigsBean.debuggable = argsBean.debuggable;
+            shellConfigsBean.sha1 = apkSha1;
+            FileUtils.writeFile(shellConfigsBean.toJsonString(), soInfoPath);
             Zip4jUtil.addFile2Zip(zipPath, soInfoPath, "assets/apk_protect");
             FileUtils.deleteFile(soInfoPath);
-            // apk sha1 信息
-            if (!argsBean.canResign) {
-                String apkSha1Path = newDexParentDir + File.separator + "sha1.bin";
-                FileUtils.writeFile(apkSha1, apkSha1Path);
-                Zip4jUtil.addFile2Zip(zipPath, apkSha1Path, "assets/apk_protect");
-                FileUtils.deleteFile(apkSha1Path);
-            }
-            // apk sha1 信息
-            if (!argsBean.debuggable) {
-                String apkSha1Path = newDexParentDir + File.separator + "debuggable.bin";
-                FileUtils.writeFile("false", apkSha1Path);
-                Zip4jUtil.addFile2Zip(zipPath, apkSha1Path, "assets/apk_protect");
-                FileUtils.deleteFile(apkSha1Path);
-            }
             // 添加新的 dex
             Zip4jUtil.addFile2Zip(zipPath, newDexPath, "assets/apk_protect");
             Zip4jUtil.addFile2Zip(zipPath, shellDexFile, "");

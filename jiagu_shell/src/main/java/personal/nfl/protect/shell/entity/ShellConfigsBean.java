@@ -2,12 +2,16 @@ package personal.nfl.protect.shell.entity;
 
 import java.util.HashMap;
 
-public class AbiFileBean {
+public class ShellConfigsBean {
     // so name | so path
     public HashMap<String, String> arm64_v8a = new HashMap<>();
     public HashMap<String, String> armeabi_v7a = new HashMap<>();
     public HashMap<String, String> x86_64 = new HashMap<>();
     public HashMap<String, String> x86 = new HashMap<>();
+    public HashMap<String, String> soResult = new HashMap<>();
+    public boolean debuggable = false;
+    public boolean canResign = false;
+    public String sha1;
 
 //    public String toJsonString() {
 //        HashMap<String, HashMap<String, String>> allSo = new HashMap<>();
