@@ -143,30 +143,33 @@ public class StubApplication extends Application {
         parseShellConfigs();
         checkSha1(base);
         checkDebug(base, shellConfigsBean.soResult);
-        File newNativeLibraryDir = base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE);
-        SharedPreferences sharedPreferences = getSharedPreferences(SP_SHELL_DEX, MODE_PRIVATE);
-        int soVersionCode = sharedPreferences.getInt(SO_VERSION, 0);
-        String soVersionName = sharedPreferences.getString(SO_VERSION_NAME, "");
-        if (!new File(newNativeLibraryDir.getAbsolutePath(), AESUtil.JIA_GU_NATIVE_LIBRARY).exists()
-                || (soVersionCode != getAppVersionCode() || !soVersionName.equals(getPackageInfo().versionName))) {
-            Utils.removeNativeLibraries(getApplicationInfo().sourceDir, abi,
-                    base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), shellConfigsBean.soResult);
-            LogUtil.debug("so list:" + new JSONObject(shellConfigsBean.soResult));
-            sharedPreferences.edit().putInt(SO_VERSION, getAppVersionCode()).putString(SO_VERSION_NAME, getPackageInfo().versionName).commit();
-        }
-        LogUtil.debug("nativeLibraryDir:" + getApplicationInfo().nativeLibraryDir);
-        File oldJiaguNativeLibrary = new File(getApplicationInfo().nativeLibraryDir, AESUtil.JIA_GU_NATIVE_LIBRARY);
-        LogUtil.info("libsxjiagu.so exists? " + oldJiaguNativeLibrary.exists());
         // FIXME: 在 viso S16 Android 14 上不能读取重打包后的 so 文件
-        // LogUtil.debug("native library:" + oldJiaguNativeLibrary.getAbsolutePath() + " and md5:" + Utils.getMd5(oldJiaguNativeLibrary));
-        // 这里采用改变 NativeLibraryPath 的方式，是因为第三方安全检测报告会警告自定义 so 目录
-        // Utils.changeDefaultNativeLibraryPath(getClassLoader(), getApplicationInfo().nativeLibraryDir, newNativeLibraryDir.getAbsolutePath());
-        // AESUtil.loadJiaGuLibrary();
-        AESUtil.loadJiaGuLibrary(newNativeLibraryDir.getAbsolutePath() + File.separator + AESUtil.JIA_GU_NATIVE_LIBRARY);
+        boolean testS16 = false;
+        if (testS16) {
+            // LogUtil.debug("native library:" + oldJiaguNativeLibrary.getAbsolutePath() + " and md5:" + Utils.getMd5(oldJiaguNativeLibrary));
+            // 这里采用改变 NativeLibraryPath 的方式，是因为第三方安全检测报告会警告自定义 so 目录
+            Utils.changeDefaultNativeLibraryPath(getClassLoader(), getApplicationInfo().nativeLibraryDir, newNativeLibraryDir.getAbsolutePath());
+            AESUtil.loadJiaGuLibrary();
+        } else {
+            File newNativeLibraryDir = base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE);
+            SharedPreferences sharedPreferences = getSharedPreferences(SP_SHELL_DEX, MODE_PRIVATE);
+            int soVersionCode = sharedPreferences.getInt(SO_VERSION, 0);
+            String soVersionName = sharedPreferences.getString(SO_VERSION_NAME, "");
+            if (!new File(newNativeLibraryDir.getAbsolutePath(), AESUtil.JIA_GU_NATIVE_LIBRARY).exists()
+                    || (soVersionCode != getAppVersionCode() || !soVersionName.equals(getPackageInfo().versionName))) {
+                Utils.removeNativeLibraries(getApplicationInfo().sourceDir, abi,
+                        base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), shellConfigsBean.soResult);
+                LogUtil.debug("so list:" + new JSONObject(shellConfigsBean.soResult));
+                sharedPreferences.edit().putInt(SO_VERSION, getAppVersionCode()).putString(SO_VERSION_NAME, getPackageInfo().versionName).commit();
+            }
+            LogUtil.debug("nativeLibraryDir:" + getApplicationInfo().nativeLibraryDir);
+            File oldJiaguNativeLibrary = new File(getApplicationInfo().nativeLibraryDir, AESUtil.JIA_GU_NATIVE_LIBRARY);
+            LogUtil.info("libsxjiagu.so exists? " + oldJiaguNativeLibrary.exists());
+            AESUtil.loadJiaGuLibrary(newNativeLibraryDir.getAbsolutePath() + File.separator + AESUtil.JIA_GU_NATIVE_LIBRARY);
+        }
         LogUtil.info("load jiagu library.");
         // 加载 dex，并解密出原 app 的 dex 文件进行加载
         boolean result = LoadDexUtil.decodeDexAndReplace(this, getAppVersionCode());
-
         if (result) {
             //生成原Application，并手动安装ContentProviders
             app = LoadDexUtil.makeApplication(getSrcApplicationClassName());

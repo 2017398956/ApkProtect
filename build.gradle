@@ -293,7 +293,12 @@ task excJiagu(type: Exec) {
     workingDir new File(projectDir, "jiagu")
     if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
         environment["Path"] = getAaptPath() + ";" + environment["Path"]
-        commandLine "cmd", "/K", "java", "-jar", "jiaguLib.jar", "--apk_file", unJiaguApkName, "--keystore_cfg", "keystore.cfg", "--resign", "--debuggable"
+        commandLine("cmd", "/K", "java", "-jar", "jiaguLib.jar",
+                "--apk_file", unJiaguApkName,
+                "--keystore_cfg", "keystore.cfg",
+                "--resign",
+                "--debuggable"
+        )
     } else {
         environment["Path"] = getAaptPath() + ":" + environment["Path"]
         commandLine "cmd", "-c", "java", "-jar", "jiaguLib.jar", "--apk_file", unJiaguApkName, "--keystore_cfg", "keystore.cfg"
@@ -302,10 +307,13 @@ task excJiagu(type: Exec) {
 
 task protectApk(type: Exec) {
     workingDir new File(projectDir, "jiagu")
+    String unProtectedApk = unJiaguApkName
+            .replace(".apk", "_align.apk")
+            .replace(".apk", "_signed.apk")
     if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
 //        commandLine "cmd", "/K", "java", "-jar", "libs/APKEditor-1.4.1.jar", "-h"
-        commandLine "cmd", "/K", "java", "-jar", "libs/APKEditor-1.4.1.jar", "p", "-i", "out/demo-release-unsigned_align_signed.apk", "-o", "out/demo-release-unsigned_align_signed_protected.apk"
+        commandLine "cmd", "/K", "java", "-jar", "libs/APKEditor-1.4.1.jar", "p", "-i", "out/${unProtectedApk}", "-o", "out/${unProtectedApk.replace(".apk", "_protected.apk")}"
     } else {
-        commandLine 'sh', "java", "-jar", "libs/APKEditor-1.4.1.jar", "p", "-i", "out/${unJiaguApkName}", "-o", "out/protected_${unJiaguApkName}"
+        commandLine 'sh', "java", "-jar", "libs/APKEditor-1.4.1.jar", "p", "-i", "out/${unProtectedApk}", "-o", "out/${unProtectedApk.replace(".apk", "_protected.apk")}"
     }
 }
