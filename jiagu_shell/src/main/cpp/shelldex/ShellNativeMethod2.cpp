@@ -15,6 +15,7 @@
 #include <ctime>
 #include <chrono>
 #include <sys/time.h>
+#include "../hook/plt_got_native_open_asset.h"
 
 #define LOG_TAG  "shell_native_method2"
 /* 以下是 OpenMemory函数在内存中对外的方法名 */
@@ -290,5 +291,6 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     ss >> version;
     LOG_D(LOG_TAG, "android sdk: %d, libart ptr: %p and jni version: 0x%s", by_rt_api_level(),
           artHandle, version.c_str());
+    plt_got_hook();
     return ret;
 }
