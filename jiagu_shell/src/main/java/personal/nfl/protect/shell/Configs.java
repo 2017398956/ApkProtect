@@ -10,4 +10,7 @@ public class Configs {
      *
      */
     public static final boolean TestOpenMemory23 = false;
+
+    public static final boolean copyNative = true;
+    public static final boolean replaceNativePath = false;
 }

@@ -10,14 +10,12 @@ import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Handler;
-import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -89,7 +87,7 @@ public class StubApplication extends Application {
         // so name | so path
         HashMap<String, String> soResult = shellConfigsBean.soResult;
         abi = nativeLibraryDir.substring(nativeLibraryDir.lastIndexOf("/") + 1);
-        LogUtil.info("获取到的 abi 裁剪路径：" + abi);
+        LogUtil.info("nativeLibraryDir：" + nativeLibraryDir);
         switch (abi) {
             case "armeabi":
             case "armeabi-v7a":
@@ -143,15 +141,9 @@ public class StubApplication extends Application {
         parseShellConfigs();
         checkSha1(base);
         checkDebug(base, shellConfigsBean.soResult);
-        // FIXME: 在 viso S16 Android 14 上不能读取重打包后的 so 文件
-        boolean testS16 = false;
-        if (testS16) {
-            // LogUtil.debug("native library:" + oldJiaguNativeLibrary.getAbsolutePath() + " and md5:" + Utils.getMd5(oldJiaguNativeLibrary));
-            // 这里采用改变 NativeLibraryPath 的方式，是因为第三方安全检测报告会警告自定义 so 目录
-            Utils.changeDefaultNativeLibraryPath(getClassLoader(), getApplicationInfo().nativeLibraryDir, newNativeLibraryDir.getAbsolutePath());
-            AESUtil.loadJiaGuLibrary();
-        } else {
-            File newNativeLibraryDir = base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE);
+        File newNativeLibraryDir = base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE);
+        if (Configs.copyNative) {
+            // FIXME: 在 viso S16 Android 14 上不能读取重打包后的 so 文件，所以这里改变下 so 的位置
             SharedPreferences sharedPreferences = getSharedPreferences(SP_SHELL_DEX, MODE_PRIVATE);
             int soVersionCode = sharedPreferences.getInt(SO_VERSION, 0);
             String soVersionName = sharedPreferences.getString(SO_VERSION_NAME, "");
@@ -165,7 +157,16 @@ public class StubApplication extends Application {
             LogUtil.debug("nativeLibraryDir:" + getApplicationInfo().nativeLibraryDir);
             File oldJiaguNativeLibrary = new File(getApplicationInfo().nativeLibraryDir, AESUtil.JIA_GU_NATIVE_LIBRARY);
             LogUtil.info("libsxjiagu.so exists? " + oldJiaguNativeLibrary.exists());
-            AESUtil.loadJiaGuLibrary(newNativeLibraryDir.getAbsolutePath() + File.separator + AESUtil.JIA_GU_NATIVE_LIBRARY);
+            // 这里采用改变 NativeLibraryPath 的方式，是因为第三方安全检测报告会警告自定义 so 目录
+            if (Configs.replaceNativePath) {
+                Utils.changeDefaultNativeLibraryPath(getClassLoader(), getApplicationInfo().nativeLibraryDir, newNativeLibraryDir.getAbsolutePath());
+                AESUtil.loadJiaGuLibrary();
+            } else {
+                AESUtil.loadJiaGuLibrary(newNativeLibraryDir.getAbsolutePath() + File.separator + AESUtil.JIA_GU_NATIVE_LIBRARY);
+            }
+        } else {
+            // LogUtil.debug("native library:" + oldJiaguNativeLibrary.getAbsolutePath() + " and md5:" + Utils.getMd5(oldJiaguNativeLibrary));
+            AESUtil.loadJiaGuLibrary();
         }
         LogUtil.info("load jiagu library.");
         // 加载 dex，并解密出原 app 的 dex 文件进行加载

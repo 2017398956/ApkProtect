@@ -11,11 +11,6 @@ import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.Log;
 
-import personal.nfl.protect.shell.Configs;
-import personal.nfl.protect.shell.util.LogUtil;
-import personal.nfl.protect.shell.util.RefInvoke;
-import personal.nfl.protect.shell.util.Utils;
-
 import java.io.File;
 import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
@@ -27,6 +22,10 @@ import java.util.Locale;
 import dalvik.system.BaseDexClassLoader;
 import dalvik.system.DexClassLoader;
 import dalvik.system.InMemoryDexClassLoader;
+import personal.nfl.protect.shell.Configs;
+import personal.nfl.protect.shell.util.LogUtil;
+import personal.nfl.protect.shell.util.RefInvoke;
+import personal.nfl.protect.shell.util.Utils;
 
 /**
  * 方式一：壳程序直接对 APK 进行加密方式
@@ -110,22 +109,31 @@ public class LoadDexUtil {
             LogUtil.debug("getClassLoader:" + Integer.toHexString(context.getClassLoader().hashCode()));
             LogUtil.debug("LoadDexUtil.class.getClassLoader:" + Integer.toHexString(LoadDexUtil.class.getClassLoader().hashCode()));
             // 创建被加壳 apk 的 DexClassLoader 对象,加载 apk 内的类和本地代码 （c/c++代码）
-            // DexClassLoader dLoader = new DexClassLoader(dexFilePath, odexPath, context.getApplicationInfo().nativeLibraryDir, mClassLoader);
-            // FIXME: 重打包后，so 在 vivo S16 Android 14 上不能加载，所以这里先换个位置
+            String tempNativePath = context.getApplicationInfo().nativeLibraryDir;
             BaseDexClassLoader dLoader;
+            if (Configs.copyNative) {
+                if (Configs.replaceNativePath) {
+                    // FIXME: 此时 tempNativePath 应该和下面的一致
+                    LogUtil.debug("tempNativePath:" + tempNativePath);
+                }
+                // FIXME: 重打包后，so 在 vivo S16 Android 14 上不能加载，所以这里先换个位置
+                tempNativePath = context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath();
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                 // FIXME: 由于 so 加载问题及测试不充分，不能保证在 8.1 的机器上不出问题，所以这里不从 8.1 开始处理而是从 10
                 // new InMemoryDexClassLoader(trueDexData, mClassLoader);
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && trueDexData != null && trueDexData.length > 0) {
                 LogUtil.info("trueDexData size:" + trueDexData.length);
-                dLoader = new InMemoryDexClassLoader(trueDexData, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader);
+                dLoader = new InMemoryDexClassLoader(trueDexData, tempNativePath, mClassLoader);
             } else if (Configs.TestOpenMemory23 && Build.VERSION.SDK_INT == Build.VERSION_CODES.M && trueDexData != null && trueDexData.length > 0) {
-                dLoader = new MyClassLoader(context, trueDexData, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader, "", odexPath);
+                // 测试自定义 dex 内存加载
+                dLoader = new MyClassLoader(context, trueDexData, tempNativePath, mClassLoader, "", odexPath);
             } else if (Configs.TestOpenMemory25 && Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1 && trueDexData != null && trueDexData.length > 0) {
-                dLoader = new MyClassLoader(context, trueDexData, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader, dexFilePath, odexPath);
+                // 测试自定义 dex 内存加载
+                dLoader = new MyClassLoader(context, trueDexData, tempNativePath, mClassLoader, dexFilePath, odexPath);
             } else {
-                dLoader = new DexClassLoader(dexFilePath, odexPath, context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), mClassLoader);
+                dLoader = new DexClassLoader(dexFilePath, odexPath, tempNativePath, mClassLoader);
             }
             LogUtil.info("创建新的 dexClassLoader:" + dLoader);
             // 把当前进程的 DexClassLoader 设置成了被加壳 apk 的 DexClassLoader  ----有点c++中进程环境的意思~~
@@ -172,7 +180,7 @@ public class LoadDexUtil {
                 "makeApplication", loadedApkInfo,
                 new Class[]{boolean.class, Instrumentation.class}, new Object[]{false, null});
         LogUtil.info("makeApplication ============ app : " + app);
-
+        LogUtil.info("new application's nativeLibraryDir: " + mApplicationInfo.nativeLibraryDir);
         // 由于源码 ActivityThread 中 handleBindApplication 方法绑定 Application 后会调用 installContentProviders，
         // 此时传入的 context 仍为壳 Application，故此处进手动安装 ContentProviders，调用完成后，清空原 providers
         installContentProviders(app, currentActivityThread, mBoundApplication);
@@ -211,7 +219,6 @@ public class LoadDexUtil {
         LogUtil.info("onCreate ===== 开始替换=====");
         // 如果源应用配置有 Application 对象，则替换为源应用 Application，以便不影响源程序逻辑。
         final String appClassName = app.getClass().getName();
-
         // 调用静态方法 android.app.ActivityThread.currentActivityThread 获取当前 activity 所在的线程对象
         Object currentActivityThread = getCurrentActivityThread();
         // 获取当前 currentActivityThread 的 mBoundApplication 属性对象，
@@ -225,7 +232,6 @@ public class LoadDexUtil {
         } else {
             LogUtil.info("loadedApkInfo ===== " + loadedApkInfo);
         }
-
         // 把当前进程的 mApplication 设置成了原 application,
         RefInvoke.setField(LoadedApk_CLASS, "mApplication", loadedApkInfo, app);
         Object oldApplication = RefInvoke.getField(ActivityThread_CLASS, currentActivityThread, "mInitialApplication");
