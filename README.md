@@ -38,4 +38,4 @@ apksigner sign --ks [.jks文件门路] --ks-key-alias [别名] --min-sdk-version
 
 ## 存在问题
 
-1. vivo S16 Android 14 无法加载 so 文件 (window 10 下使用 build-tools/35.0.0/apksigner 签名后就会出现，官方模拟器没问题)
+1. vivo S16 Android 14 无法加载 so 文件 (window 10 下使用 build-tools/35.0.0/apksigner 签名后就会出现，官方模拟器没问题，先使用临时解决方案，以后再查看原因)
