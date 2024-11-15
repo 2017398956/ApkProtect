@@ -29,7 +29,9 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -76,7 +78,7 @@ public class JiaGuMain {
         System.load(strDll);//这是我即将要重新实现的动态库名字
     }
 
-    public static void showHelp(CmdLineParser parser){
+    public static void showHelp(CmdLineParser parser) {
         System.out.println("参数说明 [options ...] [arguments...]");
         parser.printUsage(System.out);
     }
@@ -273,6 +275,24 @@ public class JiaGuMain {
         try {
             //首先把apk解压出来
             ZipUtil.unZip(apkFile, apkTemp);
+            File assetsDir = new File(apkTemp, "assets");
+            // 加密 assets 文件夹
+            if (argsBean.assets) {
+                if (assetsDir.exists()) {
+                    File assetZipFile = new File(OUT_TMP, "assets.zip");
+                    Zip4jUtil.zipFiles(assetsDir.listFiles(), assetZipFile, "assets");
+                    //
+                    ZipFile zipFile = new ZipFile(apkFile);
+                    List<String> assetsPathList = new ArrayList<>();
+                    zipFile.getFileHeaders().stream().filter(fileHeader -> fileHeader != null && fileHeader.getFileName().startsWith("assets/")).forEach(fileHeader -> {
+                        assetsPathList.add(fileHeader.getFileName());
+                    });
+                    zipFile.removeFiles(assetsPathList);
+                    zipFile.close();
+                    Zip4jUtil.addFile2Zip(apkFile.getAbsolutePath(), assetZipFile.getAbsolutePath(), "assets");
+                }
+            }
+            //
             shellConfigsBean = getMergedSoPath(apkTemp.getAbsolutePath());
             //其次获取解压目录中的dex文件
             File[] dexFiles = apkTemp.listFiles((file, s) -> s.endsWith(".dex"));
@@ -513,17 +533,17 @@ public class JiaGuMain {
             // 添加一些辅助文件
             File newDexParentDir = new File(newDexPath).getParentFile();
             // 动态库信息
-            String soInfoPath = newDexParentDir + File.separator + "shell_configs.bin";
+            String shellConfigsFilePath = newDexParentDir + File.separator + "shell_configs.bin";
             shellConfigsBean.canResign = argsBean.canResign;
             shellConfigsBean.debuggable = argsBean.debuggable;
             shellConfigsBean.sha1 = apkSha1;
-            FileUtils.writeFile(shellConfigsBean.toJsonString(), soInfoPath);
-            Zip4jUtil.addFile2Zip(zipPath, soInfoPath, "assets/apk_protect");
-            FileUtils.deleteFile(soInfoPath);
+            FileUtils.writeFile(shellConfigsBean.toJsonString(), shellConfigsFilePath);
+            Zip4jUtil.addFile2Zip(zipPath, shellConfigsFilePath, "assets/apk_protect");
+            FileUtils.deleteFile(shellConfigsFilePath);
             // 添加新的 dex
             Zip4jUtil.addFile2Zip(zipPath, newDexPath, "assets/apk_protect");
             Zip4jUtil.addFile2Zip(zipPath, shellDexFile, "");
-            //将加固的 so文件添加到apk的lib中
+            //将加固的 so文件添加到 apk 的 lib 中
             ZipFile zipFile = new ZipFile(zipPath);
             final boolean[] boolArm = new boolean[4];
             zipFile.getFileHeaders().stream().filter(fileHeader -> fileHeader != null && fileHeader.getFileName().endsWith(".so")).forEach(fileHeader -> {
@@ -538,6 +558,7 @@ public class JiaGuMain {
                     boolArm[2] = true;
                 }
             });
+            zipFile.close();
             for (String name : shellNativeLibraryNames) {
                 if (!boolArm[0] && !boolArm[1] && !boolArm[2] && !boolArm[3]) {
                     Zip4jUtil.addFile2Zip(zipPath, OUT_TMP + "shell/lib/armeabi-v7a/" + name, "lib/armeabi-v7a/");
@@ -558,10 +579,9 @@ public class JiaGuMain {
             }
             FileUtils.deleteFile(OUT_TMP + "shell");
             FileUtils.deleteFile(newDexPath);
-
             System.out.println("completed replace all dex files.");
             return true;
-        } catch (ZipException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e.getLocalizedMessage());
         }
     }

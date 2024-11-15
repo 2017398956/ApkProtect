@@ -5,6 +5,7 @@
 #include <dlfcn.h>
 #include <unistd.h>
 #include <android/log.h>
+#include "../byopen/byopen.h"
 #include "plt_got_native_open_asset.h"
 
 #define TAG "NativeHook"
@@ -24,12 +25,14 @@ int my_open(const char *pathname, int flags) {
 }
 
 void plt_got_hook() {
-    void **got_func_addr = (void **)dlsym(RTLD_DEFAULT, "nativeOpenAsset");
+    void * artHandle = (void *) by_dlopen("libandroidfw.so", RTLD_LAZY);
+    void **got_func_addr = (void **)by_dlsym(artHandle, "_ZN7android12AssetManager23openAssetFromFileLockedERKNS_7String8ENS_5Asset10AccessModeE");
+    // void **got_func_addr = (void **)by_dlsym(RTLD_DEFAULT, "_ZN7android12AssetManager23openAssetFromFileLockedERKNS_7String8ENS_5Asset10AccessModeE");
     if (got_func_addr == nullptr) {
-        LOGD("Error: Cannot find the GOT entry of 'open' function");
+        LOGD("Error: Cannot find the GOT entry of 'nativeOpenAsset' function");
         return;
     }
-    LOGD("Error: Cannot find the GOT entry of 'open' function-------------");
+    LOGD("test nativeOpenAsset");
     // Backup the original function
     orig_open = (orig_open_func_type)*got_func_addr;
 

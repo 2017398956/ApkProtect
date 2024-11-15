@@ -8,6 +8,7 @@ import net.lingala.zip4j.model.enums.CompressionLevel;
 import net.lingala.zip4j.model.enums.CompressionMethod;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,7 +20,11 @@ public class Zip4jUtil {
      * @param outZip 输出的zip文件
      * @throws ZipException 异常
      */
-    public static void zipFiles(File[] files,File outZip) throws ZipException {
+    public static void zipFiles(File[] files,File outZip) throws IOException {
+        zipFiles(files, outZip, null);
+    }
+
+    public static void zipFiles(File[] files,File outZip, String rootFolderName) throws IOException {
         if (files == null || files.length <= 0){
             return;
         }
@@ -30,6 +35,10 @@ public class Zip4jUtil {
         parameters.setCompressionMethod(CompressionMethod.DEFLATE);
         // 压缩级别
         parameters.setCompressionLevel(CompressionLevel.NORMAL);
+        //
+        if (null != rootFolderName) {
+            parameters.setRootFolderNameInZip(rootFolderName);
+        }
         // 遍历test文件夹下所有的文件、文件夹
         for (File f : files) {
             if (f.isDirectory()) {
@@ -38,6 +47,7 @@ public class Zip4jUtil {
                 zipFile.addFile(f, parameters);
             }
         }
+        zipFile.close();
     }
 
     /**
@@ -45,7 +55,7 @@ public class Zip4jUtil {
      * @param inputFile 输入的zip文件对象
      * @param outFile 解压输出的目录
      */
-    private static void unzip(File inputFile,File outFile) {
+    public static void unzip(File inputFile,File outFile) {
         try {
             ZipFile zipFile = new ZipFile(inputFile);
             zipFile.extractAll(outFile.getAbsolutePath());
@@ -76,7 +86,7 @@ public class Zip4jUtil {
      * @param zip zip包
      * @param filepath 追加的文件
      */
-    public static void addFile2Zip(String zip,String filepath,String rootFolder) throws ZipException{
+    public static void addFile2Zip(String zip,String filepath,String rootFolder) throws IOException {
         ZipFile zipFile = new ZipFile(zip);
         ZipParameters parameters = new ZipParameters();
         /*
@@ -99,8 +109,11 @@ public class Zip4jUtil {
         if (rootFolder == null){
             rootFolder = "";
         }
-        parameters.setRootFolderNameInZip(rootFolder);
+        if (!rootFolder.isEmpty()) {
+            parameters.setRootFolderNameInZip(rootFolder);
+        }
         zipFile.addFile(filepath, parameters);
+        zipFile.close();
     }
 
 

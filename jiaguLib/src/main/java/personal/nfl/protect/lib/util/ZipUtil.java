@@ -31,7 +31,8 @@ public class ZipUtil {
         }
         //开始解压
         //构建解压输入流
-        ZipInputStream zIn = new ZipInputStream(new FileInputStream(apkFile));
+        FileInputStream fileInputStream = new FileInputStream(apkFile);
+        ZipInputStream zIn = new ZipInputStream(fileInputStream);
         ZipEntry entry = null;
         File file = null;
         while ((entry = zIn.getNextEntry()) != null) {
@@ -58,6 +59,7 @@ public class ZipUtil {
             }
             zIn.closeEntry();
         }
+        fileInputStream.close();
         zIn.close();
     }
 

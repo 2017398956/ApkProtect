@@ -358,4 +358,25 @@ public class Utils {
         return null;
     }
 
+    public static String copyAssetsFile(Context context, String fileName) {
+        try {
+            InputStream inputStream = context.getAssets().open(fileName);
+            //getFilesDir() 获得当前APP的安装路径 /data/data/包名/files 目录
+            File file = new File(context.getFilesDir().getAbsolutePath(), fileName);
+            FileOutputStream fos = new FileOutputStream(file);//如果文件不存在，FileOutputStream会自动创建文件
+            int len = -1;
+            byte[] buffer = new byte[1024];
+            while ((len = inputStream.read(buffer)) != -1) {
+                fos.write(buffer, 0, len);
+            }
+            fos.flush();//刷新缓存区
+            inputStream.close();
+            fos.close();
+            return file.getAbsolutePath();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
 }
