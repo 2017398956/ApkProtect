@@ -1,10 +1,14 @@
 package personal.nfl.protect.shell.util;
 
+import android.app.Application;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.content.pm.SigningInfo;
+import android.content.res.AssetManager;
+import android.content.res.Resources;
 import android.os.Build;
 
 import java.io.BufferedInputStream;
@@ -377,6 +381,41 @@ public class Utils {
             e.printStackTrace();
         }
         return null;
+    }
+
+    /**
+     * 4.4及以前的版本调用addAssetPath方法时，只是把补丁包的路径添加到mAssetPath中，不会去重新解析，
+     * 真正解析的代码是在app第一次执行AssetManager.getResTable()`方法的时候。
+     * 一旦解析完一次后，mResource对象就不为nil，以后就会直接return掉，不会重新解析。
+     * 而当我们执行加载补丁的代码的时候，getResTable已经执行过多次了，Android Framework里面的代码会多次调用该方法。
+     * 所以即使是使用addAssetPath，也只是添加到了mAssetPath，并不会发生解析，所以补丁包里面的资源就是完全不生效的。
+     * 解决方案就是根据Google Instant Run实现的原理:创建一个新的AssetManager，然后加入完整的新资源包，替换掉原有的AssetManager。
+     * 具体可参考:深度理解Android InstantRun原理以及源码分析中的2.2 monkeyPatchExistingResources部分
+     * 通过aapt工具编译apk包，package id是0x7f，系统的资源包(framework-res.jar)，package id为0x01，
+     * 如果addAssetPath补丁包中的package id也是0x7f，就会使得同一个pakcage id的包被加载两次，
+     * 在Android L后，会把后来的包添加到之前的包的同一个PackageGroup下，但是在get资源时，会从前往后便利，
+     * 也就是说先得到原有安装包里的资源，补丁中的资源就永远无法生效。可以构建一个package id为0x66的资源包。
+     * 这样就不会与已经加载的0x7f冲突。
+     * <a href="https://github.com/CharonChui/AndroidNote/blob/master/AdavancedPart/3.%E7%83%AD%E4%BF%AE%E5%A4%8D_addAssetPath%E4%B8%8D%E5%90%8C%E7%89%88%E6%9C%AC%E5%8C%BA%E5%88%AB%E5%8E%9F%E5%9B%A0(%E4%B8%89).md">Android 5.0 以下存在的问题</a>
+     * @param application
+     * @param newAssetsPath
+     */
+    public static void replaceAssetManager(Application application, String newAssetsPath) {
+        try {
+            Resources originResources = application.getResources();
+            RefInvoke.setField(application.getBaseContext().getClass().getName(), "mResources", application.getBaseContext(), null);
+            AssetManager assetManager = AssetManager.class.newInstance();
+//            assetManager = application.getAssets();
+            Object assetsCount = RefInvoke.invokeMethod(AssetManager.class.getName(), "addAssetPath", assetManager, new Class[]{String.class}, new Object[]{newAssetsPath});
+            if (null != assetsCount) {
+                int addResult = (int) assetsCount;
+                LogUtil.debug("add assets file result:" + addResult);
+            }
+            Resources newResources = new Resources(assetManager, originResources.getDisplayMetrics(), originResources.getConfiguration());
+            RefInvoke.setField(application.getBaseContext().getClass().getName(), "mResources", application.getBaseContext(), newResources);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
 }

@@ -59,7 +59,7 @@ public class FileUtils {
         return true;
     }
 
-    public static String readFile(InputStream inputStream) {
+    public static String readFileFirstLine(InputStream inputStream) {
         InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
         BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
         try {
@@ -76,6 +76,25 @@ public class FileUtils {
         return null;
     }
 
+    public static boolean copyFile(File sourceFile, File destFile) {
+        try {
+            FileInputStream fileInputStream = new FileInputStream(sourceFile);
+            if (destFile.exists()) {
+                destFile.delete();
+            }
+            FileOutputStream fileOutputStream = new FileOutputStream(destFile);
+            byte[] bytes = new byte[1024 * 8];
+            int readLength = -1;
+            while ((readLength = fileInputStream.read(bytes)) > 0) {
+                fileOutputStream.write(bytes, 0, readLength);
+            }
+            fileInputStream.close();
+            fileOutputStream.close();
+            return true;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public static String getAppApplicationName(File file) {
         if (!file.exists()) {

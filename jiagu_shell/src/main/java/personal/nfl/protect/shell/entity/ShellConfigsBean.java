@@ -12,6 +12,7 @@ public class ShellConfigsBean {
     public boolean debuggable = false;
     public boolean canResign = false;
     public String sha1;
+    public boolean assets;
 
 //    public String toJsonString() {
 //        HashMap<String, HashMap<String, String>> allSo = new HashMap<>();

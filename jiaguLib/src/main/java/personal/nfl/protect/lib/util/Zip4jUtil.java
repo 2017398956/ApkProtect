@@ -59,8 +59,9 @@ public class Zip4jUtil {
         try {
             ZipFile zipFile = new ZipFile(inputFile);
             zipFile.extractAll(outFile.getAbsolutePath());
-        } catch (ZipException e) {
-            e.printStackTrace();
+            zipFile.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -74,11 +75,11 @@ public class Zip4jUtil {
         try {
             ZipFile zipFile = new ZipFile(zip);
             zipFile.extractFile(fileName,outDir);
-        }catch (ZipException e){
-            e.printStackTrace();
+            zipFile.close();
+        }catch (IOException e){
+            throw new RuntimeException(e);
         }
     }
-
 
     /**
      * 采用Zip4j进行添加dex,不进行压缩
@@ -106,23 +107,19 @@ public class Zip4jUtil {
          */
         parameters.setCompressionLevel(CompressionLevel.NORMAL);
         // 目标路径
-        if (rootFolder == null){
-            rootFolder = "";
-        }
-        if (!rootFolder.isEmpty()) {
+        if (rootFolder != null){
             parameters.setRootFolderNameInZip(rootFolder);
         }
         zipFile.addFile(filepath, parameters);
         zipFile.close();
     }
 
-
     /**
      * 删除dex文件
      * @param zipFilePath zip对象
      * @throws ZipException 异常
      */
-    public static void deleteDexFromZip(String zipFilePath) throws ZipException{
+    public static void deleteDexFromZip(String zipFilePath) throws IOException {
         ZipFile zipFile = new ZipFile(zipFilePath);
         List<FileHeader> files = zipFile.getFileHeaders();
         List<String> dexFiles = new ArrayList<>();
@@ -132,6 +129,13 @@ public class Zip4jUtil {
             }
         }
         zipFile.removeFiles(dexFiles);
+        zipFile.close();
+    }
+
+    public static void deleteFile(String delFilePath, String zipFilePath) throws IOException {
+        ZipFile zipFile = new ZipFile(zipFilePath);
+        zipFile.removeFile(delFilePath);
+        zipFile.close();
     }
 
 }

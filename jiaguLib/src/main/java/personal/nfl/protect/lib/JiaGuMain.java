@@ -7,7 +7,6 @@ import com.reandroid.arsc.chunk.xml.ResXmlElement;
 import com.reandroid.utils.StringsUtil;
 
 import net.lingala.zip4j.ZipFile;
-import net.lingala.zip4j.exception.ZipException;
 import net.lingala.zip4j.model.FileHeader;
 
 import org.kohsuke.args4j.CmdLineException;
@@ -25,8 +24,6 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -46,8 +43,8 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
-import personal.nfl.protect.lib.entity.ShellConfigsBean;
 import personal.nfl.protect.lib.entity.ArgsBean;
+import personal.nfl.protect.lib.entity.ShellConfigsBean;
 import personal.nfl.protect.lib.util.AESUtil;
 import personal.nfl.protect.lib.util.FileUtils;
 import personal.nfl.protect.lib.util.KeyStoreUtil;
@@ -289,6 +286,8 @@ public class JiaGuMain {
                     });
                     zipFile.removeFiles(assetsPathList);
                     zipFile.close();
+                    // 解决 Android 6 上 addAssetPath 失败的问题。
+                    Zip4jUtil.addFile2Zip(assetZipFile.getAbsolutePath(), new File(apkTemp, "AndroidManifest.xml").getAbsolutePath(), null);
                     Zip4jUtil.addFile2Zip(apkFile.getAbsolutePath(), assetZipFile.getAbsolutePath(), "assets");
                 }
             }
@@ -469,7 +468,7 @@ public class JiaGuMain {
             FileUtils.deleteFile(metaXml);
             // 5.将修改完成的AndroidManifest.xml重新添加到apk中
             outApk = OUT_TMP + apkPath.substring(apkPath.lastIndexOf("/") + 1);
-            Files.copy(new File(ORIGIN_APK).toPath(), new File(outApk).toPath(), StandardCopyOption.REPLACE_EXISTING);
+            FileUtils.copyFile(new File(ORIGIN_APK), new File(outApk));
             ProcessUtil.exeCmd("aapt r " + outApk + " AndroidManifest.xml");
             Zip4jUtil.addFile2Zip(outApk, manifestFile.getAbsolutePath(), "");
             FileUtils.deleteFile(manifestFile.getAbsolutePath());
@@ -492,10 +491,11 @@ public class JiaGuMain {
         logTitle("Fourth: Modify Application's name in AndroidManifest and add a new tag 'meta-data')");
         String outApk = "";
         long start = System.currentTimeMillis();
-        // 1.将AndroidManifest.xml从apk中提取出来
+        // 0.将 AndroidManifest.xml从 apk中提取出来
         Zip4jUtil.extractFile(apkPath, "AndroidManifest.xml", OUT_TMP);
         File manifestFile = new File(OUT_TMP, "AndroidManifest.xml");
         if (manifestFile.exists()) {
+            // 1.修改 AndroidManifest.xml
             AndroidManifestBlock androidManifestBlock = AndroidManifestBlock.load(manifestFile);
             minSdk = androidManifestBlock.getMinSdkVersion() + "";
             ResXmlElement metaDataElement = androidManifestBlock.getApplicationElement().createChildElement("meta-data");
@@ -508,8 +508,9 @@ public class JiaGuMain {
             androidManifestBlock.writeBytes(manifestFile);
             // 2.将修改完成的AndroidManifest.xml重新添加到apk中
             outApk = OUT_TMP + apkPath.substring(apkPath.lastIndexOf("/") + 1);
-            Files.copy(new File(ORIGIN_APK).toPath(), new File(outApk).toPath(), StandardCopyOption.REPLACE_EXISTING);
-            ProcessUtil.exeCmd("aapt r " + outApk + " AndroidManifest.xml");
+            FileUtils.copyFile(new File(ORIGIN_APK), new File(outApk));
+            // ProcessUtil.exeCmd("aapt r " + outApk + " AndroidManifest.xml");
+            Zip4jUtil.deleteFile("AndroidManifest.xml", outApk);
             Zip4jUtil.addFile2Zip(outApk, manifestFile.getAbsolutePath(), "");
             FileUtils.deleteFile(manifestFile.getAbsolutePath());
             System.out.println("=== modifyOriginApkManifest3 ==== " + (System.currentTimeMillis() - start) + "ms");
@@ -537,6 +538,7 @@ public class JiaGuMain {
             shellConfigsBean.canResign = argsBean.canResign;
             shellConfigsBean.debuggable = argsBean.debuggable;
             shellConfigsBean.sha1 = apkSha1;
+            shellConfigsBean.assets = argsBean.assets;
             FileUtils.writeFile(shellConfigsBean.toJsonString(), shellConfigsFilePath);
             Zip4jUtil.addFile2Zip(zipPath, shellConfigsFilePath, "assets/apk_protect");
             FileUtils.deleteFile(shellConfigsFilePath);

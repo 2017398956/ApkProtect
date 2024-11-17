@@ -15,7 +15,7 @@
 #include <ctime>
 #include <chrono>
 #include <sys/time.h>
-#include "../hook/plt_got_native_open_asset.h"
+//#include "../hook/plt_got_native_open_asset.h"
 
 #define LOG_TAG  "shell_native_method2"
 /* 以下是 OpenMemory函数在内存中对外的方法名 */

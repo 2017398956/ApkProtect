@@ -8,6 +8,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.TextUtils;
@@ -87,6 +88,7 @@ public class StubApplication extends Application {
             shellConfigsBean.canResign = shellConfigsObj.optBoolean("canResign", false);
             shellConfigsBean.debuggable = shellConfigsObj.optBoolean("debuggable", false);
             shellConfigsBean.sha1 = shellConfigsObj.getString("sha1");
+            shellConfigsBean.assets = shellConfigsObj.getBoolean("assets");
         } catch (Exception ignored) {
         }
         String nativeLibraryDir = getApplicationInfo().nativeLibraryDir;
@@ -174,22 +176,38 @@ public class StubApplication extends Application {
             // LogUtil.debug("native library:" + oldJiaguNativeLibrary.getAbsolutePath() + " and md5:" + Utils.getMd5(oldJiaguNativeLibrary));
             AESUtil.loadJiaGuLibrary();
         }
-        LogUtil.info("load jiagu library.");
+        LogUtil.debug("load jiagu library.");
         // 加载 dex，并解密出原 app 的 dex 文件进行加载
         boolean result = LoadDexUtil.decodeDexAndReplace(this, getAppVersionCode());
         if (result) {
+            // 解决 Android 6 上无法添加 assetPath
+            String newAssetsPath = null;
+            if (shellConfigsBean.assets) {
+                newAssetsPath = Utils.copyAssetsFile(this, "assets.zip");
+            }
+            if (!TextUtils.isEmpty(newAssetsPath)) {
+                Object assetsCount = RefInvoke.invokeMethod(AssetManager.class.getName(), "addAssetPath", getAssets(), new Class[]{String.class}, new Object[]{newAssetsPath});
+                if (null != assetsCount) {
+                    int addResult = (int) assetsCount;
+                    LogUtil.debug("add assets path 1", "result:" + addResult);
+                }
+            }
             //生成原Application，并手动安装ContentProviders
             app = LoadDexUtil.makeApplication(getSrcApplicationClassName());
-            String newAssetsPath = Utils.copyAssetsFile(app, "assets.zip");
-            if (!TextUtils.isEmpty(newAssetsPath)) {
-                int addResult = (int) RefInvoke.invokeMethod(AssetManager.class.getName(), "addAssetPath", app.getAssets(), new Class[]{String.class}, new Object[]{newAssetsPath});
-                LogUtil.debug("add file result:" + addResult);
+            if (app != null) {
+                if (!TextUtils.isEmpty(newAssetsPath)) {
+                    // 再添加一次，提高兼容性
+                    Object assetsCount = RefInvoke.invokeMethod(AssetManager.class.getName(), "addAssetPath", app.getAssets(), new Class[]{String.class}, new Object[]{newAssetsPath});
+                    if (null != assetsCount) {
+                        int addResult = (int) assetsCount;
+                        LogUtil.debug("add assets path 2", "result:" + addResult);
+                    }
+                }
             }
         } else {
             LogUtil.error("extract dex failed.");
         }
     }
-
 
     @Override
     public void onCreate() {
