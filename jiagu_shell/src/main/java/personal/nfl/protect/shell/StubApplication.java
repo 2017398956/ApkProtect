@@ -95,7 +95,7 @@ public class StubApplication extends Application {
         // so name | so path
         HashMap<String, String> soResult = shellConfigsBean.soResult;
         abi = nativeLibraryDir.substring(nativeLibraryDir.lastIndexOf("/") + 1);
-        LogUtil.info("nativeLibraryDir：" + nativeLibraryDir);
+        LogUtil.debug("nativeLibraryDir:" + nativeLibraryDir);
         switch (abi) {
             case "armeabi":
             case "armeabi-v7a":
@@ -162,12 +162,10 @@ public class StubApplication extends Application {
                 LogUtil.debug("so list:" + new JSONObject(shellConfigsBean.soResult));
                 sharedPreferences.edit().putInt(SO_VERSION, getAppVersionCode()).putString(SO_VERSION_NAME, getPackageInfo().versionName).commit();
             }
-            LogUtil.debug("nativeLibraryDir:" + getApplicationInfo().nativeLibraryDir);
-            File oldJiaguNativeLibrary = new File(getApplicationInfo().nativeLibraryDir, AESUtil.JIA_GU_NATIVE_LIBRARY);
-            LogUtil.info("libsxjiagu.so exists? " + oldJiaguNativeLibrary.exists());
+            Utils.changeDefaultNativeLibraryPath(getClassLoader(), getApplicationInfo().nativeLibraryDir, newNativeLibraryDir.getAbsolutePath());
+            getApplicationInfo().nativeLibraryDir = newNativeLibraryDir.getAbsolutePath();
             // 这里采用改变 NativeLibraryPath 的方式，是因为第三方安全检测报告会警告自定义 so 目录
             if (Configs.replaceNativePath) {
-                Utils.changeDefaultNativeLibraryPath(getClassLoader(), getApplicationInfo().nativeLibraryDir, newNativeLibraryDir.getAbsolutePath());
                 AESUtil.loadJiaGuLibrary();
             } else {
                 AESUtil.loadJiaGuLibrary(newNativeLibraryDir.getAbsolutePath() + File.separator + AESUtil.JIA_GU_NATIVE_LIBRARY);
@@ -189,18 +187,21 @@ public class StubApplication extends Application {
                 Object assetsCount = RefInvoke.invokeMethod(AssetManager.class.getName(), "addAssetPath", getAssets(), new Class[]{String.class}, new Object[]{newAssetsPath});
                 if (null != assetsCount) {
                     int addResult = (int) assetsCount;
-                    LogUtil.debug("add assets path 1", "result:" + addResult);
+                    LogUtil.info("add assets path 1", "result:" + addResult);
                 }
             }
             //生成原Application，并手动安装ContentProviders
             app = LoadDexUtil.makeApplication(getSrcApplicationClassName());
             if (app != null) {
+                if (Configs.copyNative) {
+                    app.getApplicationInfo().nativeLibraryDir = newNativeLibraryDir.getAbsolutePath();
+                }
                 if (!TextUtils.isEmpty(newAssetsPath)) {
                     // 再添加一次，提高兼容性
                     Object assetsCount = RefInvoke.invokeMethod(AssetManager.class.getName(), "addAssetPath", app.getAssets(), new Class[]{String.class}, new Object[]{newAssetsPath});
                     if (null != assetsCount) {
                         int addResult = (int) assetsCount;
-                        LogUtil.debug("add assets path 2", "result:" + addResult);
+                        LogUtil.info("add assets path 2", "result:" + addResult);
                     }
                 }
             }

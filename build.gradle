@@ -297,8 +297,9 @@ task excJiagu(type: Exec) {
                 "--apk_file", unJiaguApkName,
                 "--keystore_cfg", "keystore.cfg",
                 "--resign",
-                "--debuggable",
-                "--assets"
+                "--debuggable"
+//                ,
+//                "--assets"
         )
     } else {
         environment["Path"] = getAaptPath() + ":" + environment["Path"]

@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.nio.file.Files;
 
 public class FileUtils {
 
@@ -18,21 +19,21 @@ public class FileUtils {
      * @param path
      */
     public static void deleteFile(String path) {
-        File file = new File(path);
-        //文件存在时，执行删除操作
-        if (file.exists()) {
-            if (file.isFile()) {
-                file.delete();
-            } else {
+        deleteFile(new File(path));
+    }
+
+    public static void deleteFile(File file) {
+        if (null != file && file.exists()) {
+            if (file.isDirectory()) {
                 File[] files = file.listFiles();
                 if (null != files) {
                     for (File child : files) {
-                        deleteFile(child.getAbsolutePath());
+                        deleteFile(child);
                     }
-                } else {
-                    // 删除空目录
-                    file.delete();
                 }
+                file.delete();
+            } else {
+                file.delete();
             }
         }
     }

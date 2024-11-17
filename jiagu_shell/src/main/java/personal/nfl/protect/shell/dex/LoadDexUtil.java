@@ -110,29 +110,25 @@ public class LoadDexUtil {
             LogUtil.debug("LoadDexUtil.class.getClassLoader:" + Integer.toHexString(LoadDexUtil.class.getClassLoader().hashCode()));
             // 创建被加壳 apk 的 DexClassLoader 对象,加载 apk 内的类和本地代码 （c/c++代码）
             String tempNativePath = context.getApplicationInfo().nativeLibraryDir;
-            BaseDexClassLoader dLoader;
-            if (Configs.copyNative) {
-                if (Configs.replaceNativePath) {
-                    // FIXME: 此时 tempNativePath 应该和下面的一致
-                    LogUtil.debug("tempNativePath:" + tempNativePath);
+            LogUtil.debug("tempNativePath:" + tempNativePath);
+            BaseDexClassLoader dLoader = null;
+            if (trueDexData != null && trueDexData.length > 0) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                    // FIXME: 由于 so 加载问题及测试不充分，不能保证在 8.1 的机器上不出问题，所以这里不从 8.1 开始处理而是从 10
+                    // new InMemoryDexClassLoader(trueDexData, mClassLoader);
                 }
-                // FIXME: 重打包后，so 在 vivo S16 Android 14 上不能加载，所以这里先换个位置
-                tempNativePath = context.getDir(NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    LogUtil.info("trueDexData size:" + trueDexData.length);
+                    dLoader = new InMemoryDexClassLoader(trueDexData, tempNativePath, mClassLoader);
+                } else if (Configs.TestOpenMemory23 && Build.VERSION.SDK_INT == Build.VERSION_CODES.M) {
+                    // 测试自定义 dex 内存加载
+                    dLoader = new MyClassLoader(context, trueDexData, tempNativePath, mClassLoader, "", odexPath);
+                } else if (Configs.TestOpenMemory25 && Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1) {
+                    // 测试自定义 dex 内存加载
+                    dLoader = new MyClassLoader(context, trueDexData, tempNativePath, mClassLoader, dexFilePath, odexPath);
+                }
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-                // FIXME: 由于 so 加载问题及测试不充分，不能保证在 8.1 的机器上不出问题，所以这里不从 8.1 开始处理而是从 10
-                // new InMemoryDexClassLoader(trueDexData, mClassLoader);
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && trueDexData != null && trueDexData.length > 0) {
-                LogUtil.info("trueDexData size:" + trueDexData.length);
-                dLoader = new InMemoryDexClassLoader(trueDexData, tempNativePath, mClassLoader);
-            } else if (Configs.TestOpenMemory23 && Build.VERSION.SDK_INT == Build.VERSION_CODES.M && trueDexData != null && trueDexData.length > 0) {
-                // 测试自定义 dex 内存加载
-                dLoader = new MyClassLoader(context, trueDexData, tempNativePath, mClassLoader, "", odexPath);
-            } else if (Configs.TestOpenMemory25 && Build.VERSION.SDK_INT == Build.VERSION_CODES.N_MR1 && trueDexData != null && trueDexData.length > 0) {
-                // 测试自定义 dex 内存加载
-                dLoader = new MyClassLoader(context, trueDexData, tempNativePath, mClassLoader, dexFilePath, odexPath);
-            } else {
+            if (dLoader == null){
                 dLoader = new DexClassLoader(dexFilePath, odexPath, tempNativePath, mClassLoader);
             }
             LogUtil.info("创建新的 dexClassLoader:" + dLoader);
