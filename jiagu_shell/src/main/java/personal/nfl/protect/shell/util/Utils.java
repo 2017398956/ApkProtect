@@ -100,7 +100,7 @@ public class Utils {
         return dexByteArrayOutputStream.toByteArray();
     }
 
-    public static String removeNativeLibraries(String apkPath, String abi, String newNativeLibraryPath, HashMap<String, String> soResult) {
+    public static String removeNativeLibraries(String apkPath, String abi, String newNativeLibraryPath, HashMap<String, String> soResult, boolean decrypt) {
         try {
             //获取当前zip进行解压
             ZipInputStream zipInputStream = new ZipInputStream(
@@ -128,6 +128,10 @@ public class Utils {
                             }
                             if (file.createNewFile()) {
                                 FileOutputStream fileOutputStream = new FileOutputStream(file);
+                                // TODO: 解密 so
+                                if (decrypt) {
+
+                                }
                                 LogUtil.info("copy native library:" + file.getAbsolutePath());
                                 byte[] arrayOfByte = new byte[1024];
                                 while (true) {

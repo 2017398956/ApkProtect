@@ -1,5 +1,6 @@
 package personal.nfl.protect.shell;
 
+import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -14,6 +15,9 @@ import android.os.Handler;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import org.json.JSONObject;
 
@@ -89,6 +93,7 @@ public class StubApplication extends Application {
             shellConfigsBean.debuggable = shellConfigsObj.optBoolean("debuggable", false);
             shellConfigsBean.sha1 = shellConfigsObj.getString("sha1");
             shellConfigsBean.assets = shellConfigsObj.getBoolean("assets");
+            shellConfigsBean.encryptNative = shellConfigsObj.getBoolean("encryptNative");
         } catch (Exception ignored) {
         }
         String nativeLibraryDir = getApplicationInfo().nativeLibraryDir;
@@ -150,7 +155,7 @@ public class StubApplication extends Application {
         checkSha1(base);
         checkDebug(base, shellConfigsBean.soResult);
         File newNativeLibraryDir = base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE);
-        if (Configs.copyNative) {
+        if (Configs.copyNative || shellConfigsBean.encryptNative) {
             // FIXME: 在 viso S16 Android 14 上不能读取重打包后的 so 文件，所以这里改变下 so 的位置
             SharedPreferences sharedPreferences = getSharedPreferences(SP_SHELL_DEX, MODE_PRIVATE);
             int soVersionCode = sharedPreferences.getInt(SO_VERSION, 0);
@@ -158,7 +163,7 @@ public class StubApplication extends Application {
             if (!new File(newNativeLibraryDir.getAbsolutePath(), AESUtil.JIA_GU_NATIVE_LIBRARY).exists()
                     || (soVersionCode != getAppVersionCode() || !soVersionName.equals(getPackageInfo().versionName))) {
                 Utils.removeNativeLibraries(getApplicationInfo().sourceDir, abi,
-                        base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), shellConfigsBean.soResult);
+                        base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), shellConfigsBean.soResult, shellConfigsBean.encryptNative);
                 LogUtil.debug("so list:" + new JSONObject(shellConfigsBean.soResult));
                 sharedPreferences.edit().putInt(SO_VERSION, getAppVersionCode()).putString(SO_VERSION_NAME, getPackageInfo().versionName).commit();
             }
@@ -179,9 +184,11 @@ public class StubApplication extends Application {
         boolean result = LoadDexUtil.decodeDexAndReplace(this, getAppVersionCode());
         if (result) {
             // 解决 Android 6 上无法添加 assetPath
-            String newAssetsPath = null;
+            final String newAssetsPath;
             if (shellConfigsBean.assets) {
                 newAssetsPath = Utils.copyAssetsFile(this, "assets.zip");
+            } else {
+                newAssetsPath = null;
             }
             if (!TextUtils.isEmpty(newAssetsPath)) {
                 Object assetsCount = RefInvoke.invokeMethod(AssetManager.class.getName(), "addAssetPath", getAssets(), new Class[]{String.class}, new Object[]{newAssetsPath});
@@ -203,6 +210,46 @@ public class StubApplication extends Application {
                         int addResult = (int) assetsCount;
                         LogUtil.info("add assets path 2", "result:" + addResult);
                     }
+                    app.registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
+                        @Override
+                        public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
+                            Object assetsCount = RefInvoke.invokeMethod(AssetManager.class.getName(), "addAssetPath", activity.getAssets(), new Class[]{String.class}, new Object[]{newAssetsPath});
+                            if (null != assetsCount) {
+                                int addResult = (int) assetsCount;
+                                LogUtil.info("add assets path", "result:" + addResult);
+                            }
+                        }
+
+                        @Override
+                        public void onActivityStarted(@NonNull Activity activity) {
+
+                        }
+
+                        @Override
+                        public void onActivityResumed(@NonNull Activity activity) {
+
+                        }
+
+                        @Override
+                        public void onActivityPaused(@NonNull Activity activity) {
+
+                        }
+
+                        @Override
+                        public void onActivityStopped(@NonNull Activity activity) {
+
+                        }
+
+                        @Override
+                        public void onActivitySaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState) {
+
+                        }
+
+                        @Override
+                        public void onActivityDestroyed(@NonNull Activity activity) {
+
+                        }
+                    });
                 }
             }
         } else {

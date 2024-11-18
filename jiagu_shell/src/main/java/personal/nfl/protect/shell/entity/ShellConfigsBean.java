@@ -13,6 +13,7 @@ public class ShellConfigsBean {
     public boolean canResign = false;
     public String sha1;
     public boolean assets;
+    public boolean encryptNative;
 
 //    public String toJsonString() {
 //        HashMap<String, HashMap<String, String>> allSo = new HashMap<>();

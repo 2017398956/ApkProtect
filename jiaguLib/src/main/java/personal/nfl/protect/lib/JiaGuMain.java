@@ -293,6 +293,10 @@ public class JiaGuMain {
             }
             //
             shellConfigsBean = getMergedSoPath(apkTemp.getAbsolutePath());
+            //
+            if (argsBean.encryptNative) {
+                // TODO: 加密 so
+            }
             //其次获取解压目录中的dex文件
             File[] dexFiles = apkTemp.listFiles((file, s) -> s.endsWith(".dex"));
             if (dexFiles == null) return null;
@@ -539,6 +543,7 @@ public class JiaGuMain {
             shellConfigsBean.debuggable = argsBean.debuggable;
             shellConfigsBean.sha1 = apkSha1;
             shellConfigsBean.assets = argsBean.assets;
+            shellConfigsBean.encryptNative = argsBean.encryptNative;
             FileUtils.writeFile(shellConfigsBean.toJsonString(), shellConfigsFilePath);
             Zip4jUtil.addFile2Zip(zipPath, shellConfigsFilePath, "assets/apk_protect");
             FileUtils.deleteFile(shellConfigsFilePath);
