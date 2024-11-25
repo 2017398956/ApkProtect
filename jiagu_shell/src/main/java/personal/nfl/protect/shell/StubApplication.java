@@ -9,7 +9,6 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.TextUtils;
@@ -21,11 +20,7 @@ import androidx.annotation.Nullable;
 
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -304,7 +299,6 @@ public class StubApplication extends Application {
         return "";
     }
 
-
     // 以下是加载资源
     protected AssetManager mAssetManager;//资源管理器
     protected Resources mResources;//资源
@@ -344,6 +338,5 @@ public class StubApplication extends Application {
     public Resources.Theme getTheme() {
         return mTheme == null ? super.getTheme() : mTheme;
     }
-
 
 }

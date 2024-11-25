@@ -9,6 +9,9 @@ public class ShellConfigsBean {
     public HashMap<String, String> x86_64 = new HashMap<>();
     public HashMap<String, String> x86 = new HashMap<>();
     public HashMap<String, String> soResult = new HashMap<>();
+    /**
+     * 防止 debug 和 so 动态注入
+     */
     public boolean debuggable = false;
     public boolean canResign = false;
     public String sha1;

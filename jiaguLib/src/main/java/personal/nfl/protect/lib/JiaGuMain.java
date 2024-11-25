@@ -514,6 +514,7 @@ public class JiaGuMain {
             outApk = OUT_TMP + apkPath.substring(apkPath.lastIndexOf("/") + 1);
             FileUtils.copyFile(new File(ORIGIN_APK), new File(outApk));
             // ProcessUtil.exeCmd("aapt r " + outApk + " AndroidManifest.xml");
+            // FIXME: 改为用压缩工具删除 AndroidManifest.xml 文件后，好像在 Android 6 上会 crash
             Zip4jUtil.deleteFile("AndroidManifest.xml", outApk);
             Zip4jUtil.addFile2Zip(outApk, manifestFile.getAbsolutePath(), "");
             FileUtils.deleteFile(manifestFile.getAbsolutePath());
