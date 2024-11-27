@@ -1,6 +1,8 @@
 package personal.nfl.protect.shell.entity;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 public class ShellConfigsBean {
     // so name | so path
@@ -17,6 +19,7 @@ public class ShellConfigsBean {
     public String sha1;
     public boolean assets;
     public boolean encryptNative;
+    public Set<String> arouterClassNameList = new HashSet<>();
 
 //    public String toJsonString() {
 //        HashMap<String, HashMap<String, String>> allSo = new HashMap<>();

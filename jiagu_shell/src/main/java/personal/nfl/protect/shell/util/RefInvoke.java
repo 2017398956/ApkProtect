@@ -31,9 +31,19 @@ public class RefInvoke {
     public static Object invokeMethod(String class_name, String method_name, Object obj, Class[] pareType, Object[] pareValues) {
 
         try {
-            Class<?> obj_class = Class.forName(class_name);
+            return invokeMethod(Class.forName(class_name), method_name, obj, pareType, pareValues);
+        } catch (Exception e) {
+            LogUtil.error(Log.getStackTraceString(e));
+        }
+        return null;
+
+    }
+
+    public static Object invokeMethod(Class<?> clazz, String method_name, Object obj, Class[] pareType, Object[] pareValues) {
+
+        try {
             //获取类中的所有方法，但不包括继承父类的方法
-            Method method = obj_class.getDeclaredMethod(method_name, pareType);
+            Method method = clazz.getDeclaredMethod(method_name, pareType);
             method.setAccessible(true);
             return method.invoke(obj, pareValues);
         } catch (Exception e) {
@@ -57,8 +67,16 @@ public class RefInvoke {
 
     public static Object getStaticField(String class_name, String filedName) {
         try {
-            Class<?> obj_class = Class.forName(class_name);
-            Field field = obj_class.getDeclaredField(filedName);
+            return getStaticField(Class.forName(class_name), filedName);
+        } catch (Exception e) {
+            LogUtil.error(Log.getStackTraceString(e));
+        }
+        return null;
+    }
+
+    public static Object getStaticField(Class<?> clazz, String filedName) {
+        try {
+            Field field = clazz.getDeclaredField(filedName);
             field.setAccessible(true);
             return field.get(null);
         } catch (Exception e) {

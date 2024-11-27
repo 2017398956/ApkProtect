@@ -18,6 +18,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -29,6 +30,7 @@ import java.util.List;
 import personal.nfl.protect.shell.dex.LoadDexUtil;
 import personal.nfl.protect.shell.entity.ShellConfigsBean;
 import personal.nfl.protect.shell.util.AESUtil;
+import personal.nfl.protect.shell.util.ARouterHelper;
 import personal.nfl.protect.shell.util.DebuggerUtils;
 import personal.nfl.protect.shell.util.LogUtil;
 import personal.nfl.protect.shell.util.RefInvoke;
@@ -89,6 +91,10 @@ public class StubApplication extends Application {
             shellConfigsBean.sha1 = shellConfigsObj.getString("sha1");
             shellConfigsBean.assets = shellConfigsObj.getBoolean("assets");
             shellConfigsBean.encryptNative = shellConfigsObj.getBoolean("encryptNative");
+            JSONArray arouterClassNameArray = shellConfigsObj.getJSONArray("arouter");
+            for (int i = 0; i < arouterClassNameArray.length(); i++) {
+                shellConfigsBean.arouterClassNameList.add(arouterClassNameArray.getString(i));
+            }
         } catch (Exception ignored) {
         }
         String nativeLibraryDir = getApplicationInfo().nativeLibraryDir;
@@ -246,6 +252,8 @@ public class StubApplication extends Application {
                         }
                     });
                 }
+                // 处理 ARouter 问题
+                ARouterHelper.fixARouter(app.getClassLoader(), shellConfigsBean.arouterClassNameList);
             }
         } else {
             LogUtil.error("extract dex failed.");

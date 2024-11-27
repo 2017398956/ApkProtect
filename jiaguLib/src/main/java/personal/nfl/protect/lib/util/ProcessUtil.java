@@ -28,7 +28,7 @@ public class ProcessUtil {
         return exeCmd(cmd, false, listener);
     }
 
-    private static boolean exeCmd(String cmd, boolean printLog, OnReadLineListener listener) throws Exception {
+    public static boolean exeCmd(String cmd, boolean printLog, OnReadLineListener listener) throws Exception {
         if (printLog) {
             System.out.println("begin to exec command ===>" + cmd);
         }

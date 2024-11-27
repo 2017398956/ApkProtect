@@ -27,10 +27,13 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Predicate;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.stream.Stream;
 import java.util.zip.Adler32;
 
@@ -259,6 +262,28 @@ public class JiaGuMain {
         return abiFileBean;
     }
 
+    private void fixARouter(ShellConfigsBean shellConfigsBean, File apkFile) {
+        String arouterPrefix = "com/alibaba/android/arouter/routes/";
+        File jarFile = new File("dex.jar");
+        String cmd = String.format(Locale.CHINESE, "\"cd ./libs/dex-tools-v2.4 && d2j-dex2jar -f %s -o %s\"", apkFile.getAbsolutePath(), jarFile.getAbsolutePath());
+        try {
+            ProcessUtil.exeCmd(cmd, true, null);
+            JarFile temp = new JarFile(jarFile);
+            Enumeration<JarEntry> jarEntryEnumeration = temp.entries();
+            JarEntry jarEntry;
+            while (jarEntryEnumeration.hasMoreElements()) {
+                jarEntry = jarEntryEnumeration.nextElement();
+                if (jarEntry.getName().startsWith(arouterPrefix) && jarEntry.getName().endsWith(".class")) {
+                    shellConfigsBean.arouterClassNameList.add(jarEntry.getName().replace(arouterPrefix, "").replace(".class", ""));
+                }
+            }
+            temp.close();
+            FileUtils.deleteFile(jarFile);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     /**
      * 步骤二: 将需要加固的APK解压，并将所有dex文件打包成一个zip包，方便后续进行加密处理
      *
@@ -293,6 +318,7 @@ public class JiaGuMain {
             }
             //
             shellConfigsBean = getMergedSoPath(apkTemp.getAbsolutePath());
+            fixARouter(shellConfigsBean, apkFile);
             //
             if (argsBean.encryptNative) {
                 // TODO: 加密 so

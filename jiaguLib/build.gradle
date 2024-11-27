@@ -1,5 +1,6 @@
 plugins {
     id 'java-library'
+    id 'de.undercouch.download'
 }
 
 // 配置 META-INFO/MANIFEST.MF 文件
@@ -21,5 +22,33 @@ java {
 dependencies {
     api fileTree(include: ['*.jar'], dir: 'libs')
 }
+
+task downloadFile(type: Download) {
+    src([
+            "https://github.com/pxb1988/dex2jar/releases/download/v2.4/dex-tools-v2.4.zip",
+            "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar",
+            "https://repo1.maven.org/maven2/args4j/args4j/2.37/args4j-2.37.jar",
+            "https://github.com/fourbrother/AXMLEditor/blob/master/AXMLEditor.jar",
+            "https://repo1.maven.org/maven2/net/lingala/zip4j/zip4j/2.11.5/zip4j-2.11.5.jar",
+            "https://github.com/REAndroid/APKEditor/releases/V1.4.1/APKEditor-1.4.1.jar "
+    ])
+    dest "libs"
+    overwrite false
+}
+
+// 解压缩第三方jar包到某目录
+task unzip(type: Copy) {
+    dependsOn("downloadFile")
+    // 原始jar包文件
+    def zipFile = file('libs/dex-tools-v2.4.zip')
+    // 解压缩目标目录
+    def outputDir = file("./libs/")
+    // 文件过滤，去除部分class。这里建议写精确点，因为可能存在名称相同或相近的文件。
+    FileTree jarTree = zipTree(zipFile)
+    // 从jar的目录树中输出到目标目录
+    from jarTree
+    into outputDir
+}
+
 
 // 执行jar命令 : java -jar jiaguLib.jar [apk名称]

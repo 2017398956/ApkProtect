@@ -3,6 +3,8 @@ package personal.nfl.protect.lib.entity;
 import com.reandroid.json.JSONObject;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 public class ShellConfigsBean {
     public HashMap<String, String> arm64_v8a = new HashMap<>();
@@ -14,6 +16,7 @@ public class ShellConfigsBean {
     public String sha1;
     public boolean assets;
     public boolean encryptNative = false;
+    public Set<String> arouterClassNameList = new HashSet<>();
 
     public String toJsonString() {
         HashMap<String, HashMap<String, String>> allSo = new HashMap<>();
@@ -27,6 +30,7 @@ public class ShellConfigsBean {
         jsonObject.put("sha1", sha1);
         jsonObject.put("assets", assets);
         jsonObject.put("encryptNative", encryptNative);
+        jsonObject.put("arouter", arouterClassNameList);
         return jsonObject.toString();
     }
 }
