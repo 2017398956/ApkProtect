@@ -5,6 +5,10 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -24,6 +28,19 @@ public class ShellMainActivity extends Activity {
         setContentView(R.layout.activity_shell_main);
         AESUtil.loadJiaGuLibrary();
         findViewById(R.id.btn_test).setOnClickListener(v -> {
+            if (true) {
+                new ShellNativeMethod2();
+                File file = new File(getFilesDir(), "test_hook_open.txt");
+                try {
+                    file.createNewFile();
+                    FileOutputStream fileOutputStream = new FileOutputStream(file);
+                    fileOutputStream.write("hello".getBytes());
+                    fileOutputStream.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                return;
+            }
             byte[] bytes;
             Object cookie;
             boolean testAllDexes = true;

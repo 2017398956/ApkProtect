@@ -5,6 +5,7 @@
 #include <dlfcn.h>
 #include <unistd.h>
 #include <android/log.h>
+#include <fcntl.h>
 #include "../byopen/byopen.h"
 #include "plt_got_native_open_asset.h"
 
@@ -24,20 +25,60 @@ int my_open(const char *pathname, int flags) {
     return orig_open(pathname, flags);
 }
 
+void *libsample_handle = NULL;
+typedef void (*sample_test_strlen_t)(int);
+sample_test_strlen_t sample_test_strlen = NULL;
+static void my_sample(int flags) {
+    LOGD("my_sample:pre\n");
+    sample_test_strlen(flags);
+    LOGD("my_sample:aft\n");
+}
+void hacker_sample() {
+    if (NULL == libsample_handle) {
+        libsample_handle = dlopen("libsample.so", RTLD_NOW);
+        // libsample_handle:0xd9aaa8eb2103fb01
+        LOGD("libsample_handle:%p\n", libsample_handle);
+        if (NULL != libsample_handle) {
+            void* fm = dlsym(libsample_handle, "sample_test_strlen");
+            LOGD("sample_test_strlen:%p\n", fm);
+            void** fm_ref = (void**)fm;
+            LOGD("fm_ref:%p\n", fm_ref);
+            *fm_ref = (void *) my_sample;
+            sample_test_strlen = (sample_test_strlen_t)fm;
+        }
+    }
+}
+
+void run_sample() {
+    libsample_handle = dlopen("libsample.so", RTLD_NOW);
+    LOGD("run_sample libsample_handle:%p\n", libsample_handle);
+    if (NULL != libsample_handle) {
+        void *temp = dlsym(libsample_handle, "sample_test_strlen");
+        LOGD("run_sample sample_test_strlen:%p\n", temp);
+    }
+}
+
 void plt_got_hook() {
-    void * artHandle = (void *) by_dlopen("libandroidfw.so", RTLD_LAZY);
-    void **got_func_addr = (void **)by_dlsym(artHandle, "_ZN7android12AssetManager23openAssetFromFileLockedERKNS_7String8ENS_5Asset10AccessModeE");
-    // void **got_func_addr = (void **)by_dlsym(RTLD_DEFAULT, "_ZN7android12AssetManager23openAssetFromFileLockedERKNS_7String8ENS_5Asset10AccessModeE");
+//    void * artHandle = (void *) by_dlopen("libc.so", RTLD_LAZY);
+//    void **got_func_addr = (void **)by_dlsym(artHandle, "open");
+    void *got_func_addr = dlsym(RTLD_DEFAULT, "open");
     if (got_func_addr == nullptr) {
-        LOGD("Error: Cannot find the GOT entry of 'nativeOpenAsset' function");
+        LOGD("Error: Cannot find the GOT entry of 'open' function");
         return;
     }
-    LOGD("test nativeOpenAsset");
+    LOGD("open method address:%p", got_func_addr);
     // Backup the original function
-    orig_open = (orig_open_func_type)*got_func_addr;
-
+    orig_open = (orig_open_func_type) got_func_addr;
     // Replace the GOT entry with the address of our hook function
-    *got_func_addr = (void *)(my_open);
+    void **open_fun_ref_addr = &got_func_addr;
+    LOGD("open_fun_ref_addr: %p", *open_fun_ref_addr);
+    *open_fun_ref_addr = (void *)my_open;
+    LOGD("open_fun_ref_addr: %p", *open_fun_ref_addr);
+    // open 文件
+    int open_result = open("a", 1);
+    LOGD("open file result:%d", open_result);
+    hacker_sample();
+    run_sample();
 }
 
 #ifdef __cplusplus

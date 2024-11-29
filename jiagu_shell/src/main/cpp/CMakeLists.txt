@@ -35,7 +35,7 @@ add_library(
 add_library(
         ShellDex2
         SHARED
-#        hook/plt_got_native_open_asset.cpp
+        hook/plt_got_native_open_asset.cpp
         shelldex/ShellNativeMethod2.cpp
         byopen/byopen_android.cpp
 )
