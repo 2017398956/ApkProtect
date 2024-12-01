@@ -225,6 +225,11 @@ public class JiaGuMain {
         File libDir = new File(apkUnzipAbsolutePath, "lib");
         File[] abiList = libDir.listFiles();
         if (abiList == null) {
+            for (String shellSoName : shellNativeLibraryNames) {
+                // FIXME: 默认只支持 arm
+                abiFileBean.arm64_v8a.put(shellSoName, "lib/arm64-v8a/" + shellSoName);
+                abiFileBean.armeabi_v7a.put(shellSoName, "lib/armeabi-v7a/" + shellSoName);
+            }
             return abiFileBean;
         }
         File[] soList;
@@ -540,7 +545,6 @@ public class JiaGuMain {
             outApk = OUT_TMP + apkPath.substring(apkPath.lastIndexOf("/") + 1);
             FileUtils.copyFile(new File(ORIGIN_APK), new File(outApk));
             // ProcessUtil.exeCmd("aapt r " + outApk + " AndroidManifest.xml");
-            // FIXME: 改为用压缩工具删除 AndroidManifest.xml 文件后，好像在 Android 6 上会 crash
             Zip4jUtil.deleteFile("AndroidManifest.xml", outApk);
             Zip4jUtil.addFile2Zip(outApk, manifestFile.getAbsolutePath(), "");
             FileUtils.deleteFile(manifestFile.getAbsolutePath());
@@ -596,6 +600,7 @@ public class JiaGuMain {
             for (String name : shellNativeLibraryNames) {
                 if (!boolArm[0] && !boolArm[1] && !boolArm[2] && !boolArm[3]) {
                     Zip4jUtil.addFile2Zip(zipPath, OUT_TMP + "shell/lib/armeabi-v7a/" + name, "lib/armeabi-v7a/");
+                    Zip4jUtil.addFile2Zip(zipPath, OUT_TMP + "shell/lib/arm64-v8a/" + name, "lib/arm64-v8a/");
                 } else {
                     if (boolArm[0]) {
                         Zip4jUtil.addFile2Zip(zipPath, OUT_TMP + "shell/lib/armeabi-v7a/" + name, "lib/armeabi-v7a/");

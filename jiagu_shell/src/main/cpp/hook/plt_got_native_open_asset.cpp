@@ -44,6 +44,7 @@ void hacker_sample() {
             void** fm_ref = (void**)fm;
             LOGD("fm_ref:%p\n", fm_ref);
             *fm_ref = (void *) my_sample;
+            LOGD("reset method address.\n");
             sample_test_strlen = (sample_test_strlen_t)fm;
         }
     }

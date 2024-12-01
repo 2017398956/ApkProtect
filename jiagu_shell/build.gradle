@@ -42,7 +42,7 @@ android {
 
 dependencies {
     api fileTree(include:['*.jar','*.aar'],dir: 'libs')
-    implementation('androidx.core:core:1.13.0')
+//    implementation('androidx.core:core:1.13.0')
     // implementation 'com.github.tiann:FreeReflection:3.2.0'
     testImplementation 'junit:junit:4.+'
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'

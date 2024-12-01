@@ -4,6 +4,7 @@ import java.util.List;
 
 public class ShellNativeMethod2 {
     static {
+        LogUtil.debug("before load memory dex.");
         System.loadLibrary("ShellDex2");
     }
 

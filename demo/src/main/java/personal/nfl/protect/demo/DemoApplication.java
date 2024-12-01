@@ -27,7 +27,7 @@ public class DemoApplication extends Application {
                 InputStreamReader inputStreamReader = new InputStreamReader(fileInputStream);
                 BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
         ) {
-            Log.d("test_assets1", "read line:" + bufferedReader.readLine());
+            Log.d("DemoApp_attachBC", "read line:" + bufferedReader.readLine());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -43,7 +43,7 @@ public class DemoApplication extends Application {
                 InputStreamReader inputStreamReader = new InputStreamReader(fileInputStream);
                 BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
         ) {
-            Log.d("test_assets2", "read line:" + bufferedReader.readLine());
+            Log.d("DemoApp_onCreate", "read line:" + bufferedReader.readLine());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

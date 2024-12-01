@@ -15,9 +15,6 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -161,10 +158,8 @@ public class StubApplication extends Application {
             SharedPreferences sharedPreferences = getSharedPreferences(SP_SHELL_DEX, MODE_PRIVATE);
             int soVersionCode = sharedPreferences.getInt(SO_VERSION, 0);
             String soVersionName = sharedPreferences.getString(SO_VERSION_NAME, "");
-            if (!new File(newNativeLibraryDir.getAbsolutePath(), AESUtil.JIA_GU_NATIVE_LIBRARY).exists()
-                    || (soVersionCode != getAppVersionCode() || !soVersionName.equals(getPackageInfo().versionName))) {
-                Utils.removeNativeLibraries(getApplicationInfo().sourceDir, abi,
-                        base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), shellConfigsBean.soResult, shellConfigsBean.encryptNative);
+            if (!new File(newNativeLibraryDir.getAbsolutePath(), AESUtil.JIA_GU_NATIVE_LIBRARY).exists() || (soVersionCode != getAppVersionCode() || !soVersionName.equals(getPackageInfo().versionName))) {
+                Utils.removeNativeLibraries(getApplicationInfo().sourceDir, abi, base.getDir(LoadDexUtil.NewNativeLibraryPath, Application.MODE_PRIVATE).getAbsolutePath(), shellConfigsBean.soResult, shellConfigsBean.encryptNative);
                 LogUtil.debug("so list:" + new JSONObject(shellConfigsBean.soResult));
                 sharedPreferences.edit().putInt(SO_VERSION, getAppVersionCode()).putString(SO_VERSION_NAME, getPackageInfo().versionName).commit();
             }
@@ -213,7 +208,7 @@ public class StubApplication extends Application {
                     }
                     app.registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
                         @Override
-                        public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
+                        public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
                             Object assetsCount = RefInvoke.invokeMethod(AssetManager.class.getName(), "addAssetPath", activity.getAssets(), new Class[]{String.class}, new Object[]{newAssetsPath});
                             if (null != assetsCount) {
                                 int addResult = (int) assetsCount;
@@ -222,32 +217,32 @@ public class StubApplication extends Application {
                         }
 
                         @Override
-                        public void onActivityStarted(@NonNull Activity activity) {
+                        public void onActivityStarted(Activity activity) {
 
                         }
 
                         @Override
-                        public void onActivityResumed(@NonNull Activity activity) {
+                        public void onActivityResumed(Activity activity) {
 
                         }
 
                         @Override
-                        public void onActivityPaused(@NonNull Activity activity) {
+                        public void onActivityPaused(Activity activity) {
 
                         }
 
                         @Override
-                        public void onActivityStopped(@NonNull Activity activity) {
+                        public void onActivityStopped(Activity activity) {
 
                         }
 
                         @Override
-                        public void onActivitySaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState) {
+                        public void onActivitySaveInstanceState(Activity activity, Bundle outState) {
 
                         }
 
                         @Override
-                        public void onActivityDestroyed(@NonNull Activity activity) {
+                        public void onActivityDestroyed(Activity activity) {
 
                         }
                     });
@@ -291,9 +286,7 @@ public class StubApplication extends Application {
      */
     private String getSrcApplicationClassName() {
         try {
-            ApplicationInfo ai = this.getPackageManager()
-                    .getApplicationInfo(this.getPackageName(),
-                            PackageManager.GET_META_DATA);
+            ApplicationInfo ai = this.getPackageManager().getApplicationInfo(this.getPackageName(), PackageManager.GET_META_DATA);
             Bundle bundle = ai.metaData;
             if (bundle != null && bundle.containsKey(APP_KEY)) {
                 return bundle.getString(APP_KEY);//className 是配置在xml文件中的。

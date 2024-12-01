@@ -30,7 +30,7 @@ task downloadFile(type: Download) {
             "https://repo1.maven.org/maven2/args4j/args4j/2.37/args4j-2.37.jar",
             "https://github.com/fourbrother/AXMLEditor/blob/master/AXMLEditor.jar",
             "https://repo1.maven.org/maven2/net/lingala/zip4j/zip4j/2.11.5/zip4j-2.11.5.jar",
-            "https://github.com/REAndroid/APKEditor/releases/V1.4.1/APKEditor-1.4.1.jar "
+            "https://github.com/REAndroid/APKEditor/releases/download/V1.4.1/APKEditor-1.4.1.jar"
     ])
     dest "libs"
     overwrite false

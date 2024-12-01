@@ -13,6 +13,10 @@ import java.io.InputStreamReader;
 
 public class MainActivity extends AppCompatActivity {
 
+    public MainActivity() {
+        Log.d("MainActivity", "constructor");
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
