@@ -179,6 +179,10 @@ public class LoadDexUtil {
         LogUtil.info("new application's nativeLibraryDir: " + mApplicationInfo.nativeLibraryDir);
         // 由于源码 ActivityThread 中 handleBindApplication 方法绑定 Application 后会调用 installContentProviders，
         // 此时传入的 context 仍为壳 Application，故此处进手动安装 ContentProviders，调用完成后，清空原 providers
+        /**
+         * FIXME:由于 壳 没有依赖 androidx.core.content.FileProvider，对于部分手机在加载壳 dex 时会 crash？
+         * FIXME:如果 壳 依赖了 androidx.core.content.FileProvider，那么可能会出现兼容性问题？待观测
+          */
         installContentProviders(app, currentActivityThread, mBoundApplication);
         return app;
     }
