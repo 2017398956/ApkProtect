@@ -112,6 +112,18 @@ def getApkSHA1(String apkPath) {
     return apkSHA1
 }
 
+task getApkName() {
+    File jiaguDir = new File(rootDir, "jiagu")
+    jiaguDir.list().each {
+        if (it.endsWith(".apk")) {
+            unJiaguApkName = it
+            println("apk name:$unJiaguApkName")
+            return it
+        }
+    }
+    return null
+}
+
 task getDemoSHA1() {
     doLast {
         println("demo sha1:" + getApkSHA1("jiagu/" + unJiaguApkName))
@@ -291,6 +303,7 @@ def getAaptPath() {
 
 task excJiagu(type: Exec) {
     workingDir new File(projectDir, "jiagu")
+    dependsOn("getApkName")
     if (System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')) {
         environment["Path"] = getAaptPath() + ";" + environment["Path"]
         commandLine("cmd", "/K", "java", "-jar", "jiaguLib.jar",
@@ -309,6 +322,7 @@ task excJiagu(type: Exec) {
 
 task protectApk(type: Exec) {
     workingDir new File(projectDir, "jiagu")
+    dependsOn("getApkName")
     String unProtectedApk = unJiaguApkName
             .replace(".apk", "_align.apk")
             .replace(".apk", "_signed.apk")
@@ -317,5 +331,17 @@ task protectApk(type: Exec) {
         commandLine "cmd", "/K", "java", "-jar", "libs/APKEditor-1.4.1.jar", "p", "-i", "out/${unProtectedApk}", "-o", "out/${unProtectedApk.replace(".apk", "_protected.apk")}"
     } else {
         commandLine 'sh', "java", "-jar", "libs/APKEditor-1.4.1.jar", "p", "-i", "out/${unProtectedApk}", "-o", "out/${unProtectedApk.replace(".apk", "_protected.apk")}"
+    }
+}
+
+task installApk(type: Exec) {
+    workingDir new File(projectDir, "jiagu")
+    dependsOn("getApkName")
+    String prefixStr = unJiaguApkName.replace(".apk", "")
+    new File(workingDir, "out").list().each {
+        if (it.startsWith(prefixStr) && it.endsWith("_protected.apk")) {
+            commandLine 'adb', 'install', '-t', '-r', "out/$it"
+            return
+        }
     }
 }
