@@ -291,6 +291,6 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
     ss >> version;
     LOG_D(LOG_TAG, "android sdk: %d, libart ptr: %p and jni version: 0x%s", by_rt_api_level(),
           artHandle, version.c_str());
-    // plt_got_hook();
+     plt_got_hook();
     return ret;
 }

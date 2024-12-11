@@ -339,7 +339,7 @@ task installApk(type: Exec) {
     dependsOn("getApkName")
     String prefixStr = unJiaguApkName.replace(".apk", "")
     new File(workingDir, "out").list().each {
-        if (it.startsWith(prefixStr) && it.endsWith("_protected.apk")) {
+        if (it.startsWith(prefixStr) && (it.endsWith("_protected.apk") || it.endsWith("signed.apk"))) {
             commandLine 'adb', 'install', '-t', '-r', "out/$it"
             return
         }
