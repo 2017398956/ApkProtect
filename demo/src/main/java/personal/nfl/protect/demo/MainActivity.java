@@ -20,6 +20,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        assert (getApplication() instanceof DemoApplication);
         int[] appCompatTheme = R.styleable.AppCompatTheme;
         int appCompatThemeWindowActionBar = R.styleable.AppCompatTheme_windowActionBar;
         setContentView(R.layout.activity_main);
