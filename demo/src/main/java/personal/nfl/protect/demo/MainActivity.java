@@ -7,9 +7,12 @@ import android.util.Log;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -47,5 +50,40 @@ public class MainActivity extends AppCompatActivity {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private List<String> getReleaseApkPngs(String apkUnzipPath) {
+        File apkUnzipDir = new File(apkUnzipPath);
+        if (!apkUnzipDir.exists() || !apkUnzipDir.isDirectory()) {
+            return null;
+        }
+        File resDir = new File(apkUnzipDir, "res");
+        if (!resDir.exists() || !resDir.isDirectory()) {
+            return null;
+        }
+        return getPngList(resDir);
+    }
+
+    private List<String> getPngList(File file) {
+        List<String> pngList = new ArrayList<>();
+        if (file.isDirectory()) {
+            File[] subFiles = file.listFiles();
+            if (subFiles != null) {
+                for (File temp : subFiles) {
+                    if (temp.isDirectory()) {
+                        pngList.addAll(getPngList(temp));
+                    } else {
+                        if (temp.getName().endsWith(".png")) {
+                            pngList.add(temp.getPath());
+                        }
+                    }
+                }
+            }
+        } else {
+            if (file.exists() && file.getName().endsWith(".png")) {
+                pngList.add(file.getPath());
+            }
+        }
+        return pngList;
     }
 }
