@@ -11,6 +11,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -85,5 +86,14 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return pngList;
+    }
+
+    private void invokeTest() {
+        try {
+            Class clazz = Class.forName("com.personal.test.Test");
+            Method method = clazz.getMethod("getSystemBrand", null);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }
